@@ -5,12 +5,13 @@ OutreachFlow is a production-minded, single-owner outreach app for a small web-d
 ## Features
 
 - Dashboard with lead metrics, funnel breakdown, recent activity, interested-reply notifications, quick actions, and follow-up reminders.
+- Safe local-business research with Google Places, public website observations, verified contact import, and demo candidates when Places is not configured.
 - Searchable and filterable leads table with pagination and export-only bulk selection.
 - Manual lead entry with client and server validation.
 - CSV import workflow with preview, column mapping, duplicate handling, row errors, and a fictional template.
 - Lead detail workspace for editable observations, notes, draft review, final send confirmation, reply history, classification override, and timeline.
 - Template manager with safe variables, live preview, missing-variable badges, and mandatory opt-out protection.
-- Settings for sender profile, daily send limit, follow-up delay, OpenAI key storage, Gmail OAuth status, and owner allowlist state.
+- Settings for sender profile, daily send limit, follow-up delay, OpenAI key storage, Gmail OAuth status, and workspace owner state.
 - Server-side OpenAI Responses API routes, Gmail OAuth/draft/send structure, Pub/Sub webhook, manual sync route, and scheduled follow-up checks.
 
 ## Tech Stack
@@ -25,7 +26,7 @@ OutreachFlow is a production-minded, single-owner outreach app for a small web-d
 
 Business rules live in `lib/business-rules.ts` and are reused by UI, API routes, cron checks, and tests. Validation schemas live in `lib/schemas.ts`. External services are isolated in `lib/ai`, `lib/gmail`, `lib/security`, and `lib/supabase`.
 
-The app renders fictional demo data when Supabase env vars are absent. With Supabase configured, middleware enforces login and owner-only access through `OWNER_EMAIL`, while RLS enforces `auth.uid() = owner_id` for every table.
+The app renders fictional demo data when Supabase env vars are absent. With Supabase configured for local use, server-side storage uses the service-role key and assigns rows to the first Supabase Auth user in the project.
 
 ## Local Setup
 
@@ -52,13 +53,12 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 1. Create a Supabase project.
 2. Run `supabase/migrations/0001_outreachflow.sql`.
 3. Create the owner user in Supabase Auth.
-4. Set `OWNER_EMAIL` to that exact email.
-5. Set `SEED_OWNER_ID` to the owner user's UUID.
-6. Run `npm run seed` to load fictional sample data.
+4. Set `SEED_OWNER_ID` to the owner user's UUID if you want to seed fictional sample data.
+5. Run `npm run seed` to load fictional sample data.
 
 ## Single-Owner Auth
 
-The app has no public signup, workspaces, teams, or roles. Login uses Supabase magic links, and middleware rejects authenticated users whose email does not match `OWNER_EMAIL`.
+The app has no public signup, teams, or roles. For local single-workspace use, create one Supabase Auth user and connect Gmail from Settings.
 
 ## OpenAI Setup
 
@@ -73,6 +73,10 @@ Create a Google OAuth client and configure:
 - `GOOGLE_REDIRECT_URI`
 
 The app requests Gmail compose/modify scopes, creates Gmail drafts by default, and sends only after final confirmation. Gmail drafts are MIME messages encoded as base64url, matching Google's draft guidance: [Gmail draft API](https://developers.google.com/workspace/gmail/api/guides/drafts).
+
+## Local Research Setup
+
+Set `GOOGLE_PLACES_API_KEY` to use Google Places Text Search for live local-business discovery. Without it, the Research page returns fictional demo candidates. Website observations are limited to public page signals and are saved as reviewable notes; emails must be verified before sending.
 
 ## Pub/Sub Reply Sync
 
@@ -106,12 +110,12 @@ Playwright runs against the demo data and does not require real OpenAI, Gmail, o
 - RLS is enabled for every table.
 - Email bodies, refresh tokens, API keys, and service-role keys should not be logged.
 - AI and Gmail endpoints are rate limited.
-- Backend code never fetches arbitrary business websites.
+- Website research is rate limited, shallow, and review-only.
 - Stop statuses block drafts, sends, and follow-ups.
 
 ## Limitations And Non-Goals
 
-OutreachFlow is intentionally not a campaign tool. It does not scrape contacts, browse websites, automate browser actions, send bulk email, auto-send follow-ups, manage teams, or support public signup.
+OutreachFlow is intentionally not a campaign tool. It does not send bulk email, auto-send initial emails, auto-send follow-ups, manage teams, or support public signup.
 
 ## CSV Import Format
 

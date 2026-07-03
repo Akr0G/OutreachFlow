@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { mandatoryOptOutSentence } from "@/lib/constants";
+import { buildLocalDraft, draftVariations } from "@/lib/email/draft-variations";
 import { validateInitialEmailDraft } from "@/lib/email/validation";
-import { sampleLeads } from "@/lib/sample-data";
+import { sampleLeads, sampleSettings } from "@/lib/sample-data";
 
 describe("AI draft validation", () => {
   it("accepts a compliant initial email", () => {
@@ -33,5 +34,17 @@ Akhil`;
     expect(result.valid).toBe(false);
     expect(result.errors.join(" ")).toContain("opt-out");
     expect(result.errors.join(" ")).toContain("unsupported claim");
+  });
+
+  it("varies compliant local initial drafts", () => {
+    const lead = sampleLeads[0];
+    const drafts = draftVariations.map((variation) => buildLocalDraft(lead, "initial", sampleSettings, variation));
+    const subjects = new Set(drafts.map((draft) => draft.subject));
+
+    expect(subjects.size).toBeGreaterThan(1);
+    for (const draft of drafts) {
+      const result = validateInitialEmailDraft(draft, lead, "Best\nAkhil");
+      expect(result.valid).toBe(true);
+    }
   });
 });

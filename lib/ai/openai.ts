@@ -2,6 +2,7 @@ import OpenAI from "openai";
 import { emailDraftJsonSchema, emailGenerationSystemPrompt, replyClassificationJsonSchema, replyClassificationSystemPrompt } from "@/lib/ai/prompts";
 import { replyClassificationSchema } from "@/lib/schemas";
 import { decryptSecret } from "@/lib/security/crypto";
+import type { DraftVariation } from "@/lib/email/draft-variations";
 import type { AppSettings, GeneratedEmailDraft, Lead, ReplyClassification, Template } from "@/lib/types";
 
 type DraftPayload = {
@@ -9,6 +10,7 @@ type DraftPayload = {
   settings: AppSettings;
   templates: Template[];
   draft_type: "initial" | "follow_up";
+  variation?: DraftVariation;
 };
 
 export async function generateEmailDraftWithOpenAI(apiKey: string, payload: DraftPayload): Promise<GeneratedEmailDraft> {

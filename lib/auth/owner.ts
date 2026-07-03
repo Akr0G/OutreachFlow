@@ -1,5 +1,5 @@
 import { cache } from "react";
-import { createSupabaseServerClient, isSupabaseConfigured } from "@/lib/supabase/server";
+import { createSupabaseAdminClient, createSupabaseServerClient, isSupabaseConfigured } from "@/lib/supabase/server";
 
 export type OwnerContext = {
   id: string;
@@ -8,12 +8,10 @@ export type OwnerContext = {
 };
 
 export const getOwnerContext = cache(async (): Promise<OwnerContext> => {
-  const ownerEmail = process.env.OWNER_EMAIL;
-
   if (!isSupabaseConfigured()) {
     return {
       id: "demo-owner",
-      email: ownerEmail ?? "owner@example.com",
+      email: "owner@example.com",
       demo: true
     };
   }
@@ -24,14 +22,29 @@ export const getOwnerContext = cache(async (): Promise<OwnerContext> => {
     error
   } = await supabase.auth.getUser();
 
-  if (error || !user?.email) {
-    throw new Error("Unauthorized");
+  if (!error && user?.email) {
+    return {
+      id: user.id,
+      email: user.email,
+      demo: false
+    };
   }
-  if (!ownerEmail) {
-    throw new Error("OWNER_EMAIL must be configured.");
+
+  return resolveLocalWorkspaceOwner();
+});
+
+async function resolveLocalWorkspaceOwner(): Promise<OwnerContext> {
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    throw new Error("Supabase service role key is required when login is disabled.");
   }
-  if (user.email.toLowerCase() !== ownerEmail.toLowerCase()) {
-    throw new Error("This app is restricted to the configured owner account.");
+
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin.auth.admin.listUsers({ page: 1, perPage: 1 });
+  if (error) throw error;
+
+  const user = data.users[0];
+  if (!user?.email) {
+    throw new Error("Create at least one Supabase Auth user before using the workspace without login.");
   }
 
   return {
@@ -39,9 +52,4 @@ export const getOwnerContext = cache(async (): Promise<OwnerContext> => {
     email: user.email,
     demo: false
   };
-});
-
-export function isOwnerEmail(email: string | null | undefined) {
-  const ownerEmail = process.env.OWNER_EMAIL;
-  return Boolean(email && ownerEmail && email.toLowerCase() === ownerEmail.toLowerCase());
 }

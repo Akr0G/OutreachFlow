@@ -88,6 +88,25 @@ export const openAiSecretSchema = z.object({
   api_key: z.string().trim().min(20)
 });
 
+export const researchSearchSchema = z.object({
+  business_type: z.string().trim().min(2).max(80),
+  location: z.string().trim().min(2).max(120),
+  limit: z.coerce.number().int().min(1).max(8).default(5),
+  include_website_research: z.boolean().default(true)
+});
+
+export const researchImportSchema = z.object({
+  business_name: z.string().trim().min(1).max(160),
+  contact_name: nullableText,
+  email: z.string().trim().email("Enter a valid email address.").max(254),
+  website_url: nullableUrl,
+  industry: nullableText,
+  location: nullableText,
+  observed_website_issues: z.array(z.enum(observedWebsiteIssues)).default([]),
+  issue_details: nullableText,
+  notes: nullableText
+});
+
 export const csvImportRowSchema = leadInputSchema
   .omit({ status: true, follow_up_count: true })
   .extend({
@@ -98,3 +117,5 @@ export const csvImportRowSchema = leadInputSchema
 export type LeadInput = z.infer<typeof leadInputSchema>;
 export type SettingsInput = z.infer<typeof settingsSchema>;
 export type TemplateInput = z.infer<typeof templateSchema>;
+export type ResearchSearchInput = z.infer<typeof researchSearchSchema>;
+export type ResearchImportInput = z.infer<typeof researchImportSchema>;

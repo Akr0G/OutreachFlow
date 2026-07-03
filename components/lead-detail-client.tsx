@@ -20,17 +20,14 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/status-badge";
-import {
-  mandatoryOptOutSentence,
-  observedWebsiteIssues,
-  replyCategories
-} from "@/lib/constants";
+import { observedWebsiteIssues, replyCategories } from "@/lib/constants";
 import {
   canCreateFollowUpDraft,
   canCreateInitialDraft,
   canSendDraft,
   statusForReplyCategory
 } from "@/lib/business-rules";
+import { buildLocalDraft, pickDraftVariation } from "@/lib/email/draft-variations";
 import type { Activity, AppSettings, EmailDraft, Lead, LeadStatus, Reply, ReplyCategory } from "@/lib/types";
 import { domainFromUrl, formatDateTime } from "@/lib/utils/format";
 import { cn } from "@/lib/utils/cn";
@@ -101,15 +98,18 @@ export function LeadDetailClient({
       return;
     }
 
+    const generated = buildLocalDraft(
+      leadState,
+      type,
+      settings,
+      pickDraftVariation(`${leadState.id}:${Date.now()}:${type}`)
+    );
     const draft: EmailDraft = {
       id: crypto.randomUUID(),
       lead_id: leadState.id,
       draft_type: type,
-      subject:
-        type === "initial"
-          ? `A homepage mockup idea for ${leadState.business_name}`
-          : `Following up on ${leadState.business_name}`,
-      body: type === "initial" ? initialBody(leadState, settings) : followUpBody(leadState, settings),
+      subject: generated.subject,
+      body: generated.body,
       state: "awaiting_review",
       gmail_draft_id: null,
       gmail_message_id: null,
@@ -540,18 +540,4 @@ function EditField({
       <Input type={type} value={value} onChange={(event) => onChange(event.target.value)} />
     </div>
   );
-}
-
-function initialBody(lead: Lead, settings: AppSettings) {
-  const issue = lead.observed_website_issues[0] ?? lead.issue_details;
-  const greeting = lead.contact_name ? `Hi ${lead.contact_name},` : "Hi,";
-  const issueSentence = issue
-    ? `I noticed ${lead.business_name} has ${issue.toLowerCase()}.`
-    : `I came across ${lead.business_name}.`;
-  return `${greeting}\n\n${issueSentence} I run ${settings.agency_name} and build simple websites for local businesses. I thought a cleaner homepage could make it easier for customers to take the next step. I would be happy to create a complimentary homepage mockup in exchange for a short 10-15 minute call. ${mandatoryOptOutSentence}\n\nBest,\n${settings.sender_name}\n${settings.agency_name}`;
-}
-
-function followUpBody(lead: Lead, settings: AppSettings) {
-  const greeting = lead.contact_name ? `Hi ${lead.contact_name},` : "Hi,";
-  return `${greeting}\n\nJust wanted to follow up on my note about a complimentary homepage mockup for ${lead.business_name}. If it would be useful, I can send over a simple direction before a short 10-15 minute call. If now is not a fit, no worries.\n\nBest,\n${settings.sender_name}`;
 }

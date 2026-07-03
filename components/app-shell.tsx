@@ -5,6 +5,7 @@ import {
   Inbox,
   LayoutDashboard,
   MailCheck,
+  Search,
   Settings,
   Upload,
   Users
@@ -13,6 +14,7 @@ import { cn } from "@/lib/utils/cn";
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/research", label: "Research", icon: Search },
   { href: "/leads", label: "Leads", icon: Users },
   { href: "/leads/new", label: "Add Lead", icon: MailCheck },
   { href: "/import", label: "Import", icon: Upload },
@@ -71,7 +73,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               ))}
             </nav>
             <div className="ml-auto flex items-center gap-3 text-sm text-slate-500">
-              <span className="hidden sm:inline">Owner-only</span>
+              <span className="hidden sm:inline">Signed in</span>
               <span className="h-2 w-2 rounded-full bg-emerald-500" aria-hidden="true" />
             </div>
           </div>

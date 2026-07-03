@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getOwnerContext } from "@/lib/auth/owner";
 import { leadInputSchema } from "@/lib/schemas";
-import { createSupabaseServerClient, isSupabaseConfigured } from "@/lib/supabase/server";
+import { createSupabaseWorkspaceClient, isSupabaseConfigured } from "@/lib/supabase/server";
 
 export type ActionState = {
   ok: boolean;
@@ -46,7 +46,7 @@ export async function createLeadAction(_: ActionState, formData: FormData): Prom
   }
 
   const owner = await getOwnerContext();
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseWorkspaceClient();
   const { data, error } = await supabase
     .from("leads")
     .insert({

@@ -6,7 +6,7 @@ import { rateLimit } from "@/lib/rate-limit";
 import { sendDraftSchema } from "@/lib/schemas";
 import { decryptSecret } from "@/lib/security/crypto";
 import { getRawSettings } from "@/lib/supabase/repository";
-import { createSupabaseServerClient, isSupabaseConfigured } from "@/lib/supabase/server";
+import { createSupabaseWorkspaceClient, isSupabaseConfigured } from "@/lib/supabase/server";
 import type { EmailDraft, Lead } from "@/lib/types";
 
 export async function POST(request: NextRequest) {
@@ -21,22 +21,24 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true, gmail_message_id: `demo-sent-${crypto.randomUUID()}` });
   }
 
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseWorkspaceClient();
   const settings = await getRawSettings();
   const { data: draft, error: draftError } = await supabase
     .from("email_drafts")
     .select("*")
+    .eq("owner_id", owner.id)
     .eq("id", parsed.data.draft_id)
     .single();
   if (draftError || !draft) return NextResponse.json({ error: "Draft not found." }, { status: 404 });
 
-  const { data: lead, error: leadError } = await supabase.from("leads").select("*").eq("id", draft.lead_id).single();
+  const { data: lead, error: leadError } = await supabase.from("leads").select("*").eq("owner_id", owner.id).eq("id", draft.lead_id).single();
   if (leadError || !lead) return NextResponse.json({ error: "Lead not found." }, { status: 404 });
 
   const today = new Date().toISOString().slice(0, 10);
   const { count } = await supabase
     .from("email_drafts")
     .select("id", { count: "exact", head: true })
+    .eq("owner_id", owner.id)
     .eq("state", "sent")
     .gte("sent_at", `${today}T00:00:00.000Z`);
 
@@ -51,6 +53,7 @@ export async function POST(request: NextRequest) {
   await supabase
     .from("email_drafts")
     .update({ state: "sent", sent_at: now, gmail_message_id: result.messageId, updated_at: now })
+    .eq("owner_id", owner.id)
     .eq("id", draft.id);
   await supabase
     .from("leads")
@@ -63,6 +66,7 @@ export async function POST(request: NextRequest) {
       last_activity_at: now,
       updated_at: now
     })
+    .eq("owner_id", owner.id)
     .eq("id", lead.id);
   await supabase.from("activities").insert({
     owner_id: owner.id,

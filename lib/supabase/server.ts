@@ -51,3 +51,10 @@ export function createSupabaseAdminClient() {
     }
   );
 }
+
+export async function createSupabaseWorkspaceClient(): Promise<any> {
+  if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return createSupabaseAdminClient();
+  }
+  return createSupabaseServerClient();
+}

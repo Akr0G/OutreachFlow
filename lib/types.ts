@@ -136,3 +136,22 @@ export type ReplyClassification = {
   confidence: number;
   explanation: string;
 };
+
+export type ResearchCandidate = {
+  id: string;
+  business_name: string;
+  contact_name: string | null;
+  email: string | null;
+  phone: string | null;
+  website_url: string | null;
+  industry: string | null;
+  location: string | null;
+  address: string | null;
+  source: "google_places" | "demo";
+  source_url: string | null;
+  observed_website_issues: ObservedWebsiteIssue[];
+  issue_details: string | null;
+  notes: string | null;
+  confidence: number;
+  needs_email_verification: boolean;
+};

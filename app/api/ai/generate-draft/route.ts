@@ -2,13 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { getOwnerContext } from "@/lib/auth/owner";
 import { generateEmailDraftWithOpenAI, resolveOpenAiApiKey } from "@/lib/ai/openai";
 import { canCreateFollowUpDraft, canCreateInitialDraft, nextStatusAfterDraftCreated } from "@/lib/business-rules";
-import { mandatoryOptOutSentence } from "@/lib/constants";
+import { buildLocalDraft, pickDraftVariation } from "@/lib/email/draft-variations";
 import { validateInitialEmailDraft } from "@/lib/email/validation";
 import { rateLimit } from "@/lib/rate-limit";
 import { generateDraftRequestSchema } from "@/lib/schemas";
 import { getLeadBundle, getRawSettings, listTemplates } from "@/lib/supabase/repository";
-import { createSupabaseServerClient, isSupabaseConfigured } from "@/lib/supabase/server";
-import type { EmailDraft, GeneratedEmailDraft, Lead } from "@/lib/types";
+import { createSupabaseWorkspaceClient, isSupabaseConfigured } from "@/lib/supabase/server";
+import type { EmailDraft, GeneratedEmailDraft } from "@/lib/types";
 
 export async function POST(request: NextRequest) {
   const owner = await getOwnerContext();
@@ -33,6 +33,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: eligibility.reason }, { status: 409 });
   }
 
+  const variation = pickDraftVariation(`${lead.id}:${Date.now()}:${parsed.data.draft_type}`);
   let generated: GeneratedEmailDraft;
   try {
     const apiKey = resolveOpenAiApiKey(settings);
@@ -40,13 +41,14 @@ export async function POST(request: NextRequest) {
       lead,
       settings,
       templates,
-      draft_type: parsed.data.draft_type
+      draft_type: parsed.data.draft_type,
+      variation
     });
   } catch {
     if (isSupabaseConfigured()) {
       return NextResponse.json({ error: "OpenAI generation failed." }, { status: 502 });
     }
-    generated = localDraft(lead, parsed.data.draft_type, settings.sender_name, settings.agency_name);
+    generated = buildLocalDraft(lead, parsed.data.draft_type, settings, variation);
   }
 
   const signature = templates.find((template) => template.template_type === "signature")?.content;
@@ -77,7 +79,7 @@ export async function POST(request: NextRequest) {
   }
 
   const now = new Date().toISOString();
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseWorkspaceClient();
   const { data: draft, error } = await supabase
     .from("email_drafts")
     .insert({
@@ -111,21 +113,4 @@ export async function POST(request: NextRequest) {
   }
 
   return NextResponse.json({ draft });
-}
-
-function localDraft(lead: Lead, type: "initial" | "follow_up", senderName: string, agencyName: string): GeneratedEmailDraft {
-  const issue = lead.observed_website_issues[0] ?? lead.issue_details;
-  if (type === "follow_up") {
-    return {
-      subject: `Following up on ${lead.business_name}`,
-      body: `Hi ${lead.contact_name ?? "there"},\n\nJust wanted to follow up on my note about a complimentary homepage mockup for ${lead.business_name}. If it would be useful, I can send over a simple direction before a short 10-15 minute call. If now is not a fit, no worries.\n\nBest,\n${senderName}`
-    };
-  }
-  const issueSentence = issue
-    ? `I noticed ${lead.business_name} has ${issue.toLowerCase()}.`
-    : `I came across ${lead.business_name}.`;
-  return {
-    subject: `A homepage mockup idea for ${lead.business_name}`,
-    body: `Hi ${lead.contact_name ?? "there"},\n\n${issueSentence} I run ${agencyName} and build simple websites for local businesses. I thought a cleaner homepage could make it easier for customers to take the next step. I would be happy to create a complimentary homepage mockup in exchange for a short 10-15 minute call. ${mandatoryOptOutSentence}\n\nBest,\n${senderName}\n${agencyName}`
-  };
 }

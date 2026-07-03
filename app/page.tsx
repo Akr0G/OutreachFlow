@@ -9,6 +9,7 @@ import {
   MessageSquare,
   Plus,
   RefreshCw,
+  Search,
   Send,
   Upload,
   Users
@@ -68,6 +69,7 @@ export default async function DashboardPage() {
           <p className="mt-1 text-sm text-slate-600">Thoughtful outreach, one lead at a time.</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <QuickAction href="/research" icon={Search} label="Research" />
           <QuickAction href="/leads/new" icon={Plus} label="Add Lead" />
           <QuickAction href="/import" icon={Upload} label="Import CSV" />
           <QuickAction href="/drafts" icon={FilePenLine} label="View Drafts" />

@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
 
-  if (!isSupabaseConfigured() || !process.env.SUPABASE_SERVICE_ROLE_KEY || !process.env.OWNER_EMAIL) {
+  if (!isSupabaseConfigured() || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
     const [leads, drafts, settings] = await Promise.all([listLeads(), listDrafts(), getRawSettings()]);
     const eligible = leads.filter((lead) =>
       canCreateFollowUpDraft(
@@ -33,15 +33,11 @@ export async function GET(request: NextRequest) {
   }
 
   const admin = createSupabaseAdminClient();
-  const { data: users } = await admin.auth.admin.listUsers();
-  const owner = users.users.find((user) => user.email?.toLowerCase() === process.env.OWNER_EMAIL!.toLowerCase());
-  if (!owner) return NextResponse.json({ error: "Configured owner email was not found." }, { status: 404 });
-
   const [leadsResult, draftsResult, settingsResult, templatesResult] = await Promise.all([
-    admin.from("leads").select("*").eq("owner_id", owner.id),
-    admin.from("email_drafts").select("*").eq("owner_id", owner.id),
-    admin.from("settings").select("*").eq("owner_id", owner.id).single(),
-    admin.from("templates").select("*").eq("owner_id", owner.id)
+    admin.from("leads").select("*"),
+    admin.from("email_drafts").select("*"),
+    admin.from("settings").select("*"),
+    admin.from("templates").select("*")
   ]);
   if (leadsResult.error || draftsResult.error || settingsResult.error || templatesResult.error) {
     return NextResponse.json({ error: "Follow-up query failed." }, { status: 500 });
@@ -49,24 +45,31 @@ export async function GET(request: NextRequest) {
 
   const leads = leadsResult.data as Lead[];
   const drafts = draftsResult.data as EmailDraft[];
-  const settings = settingsResult.data as AppSettings & { encrypted_gmail_refresh_token?: string | null };
+  const settingsRows = settingsResult.data as (AppSettings & { encrypted_gmail_refresh_token?: string | null })[];
   const templates = templatesResult.data as Template[];
-  const eligible = leads.filter((lead) =>
-    canCreateFollowUpDraft(
-      lead,
-      drafts.filter((draft) => draft.lead_id === lead.id),
-      new Date(),
-      settings.follow_up_delay_days
-    ).allowed
-  );
 
+  let eligibleCount = 0;
   let createdCount = 0;
-  for (const lead of eligible) {
+  for (const settings of settingsRows) {
+    const ownerLeads = leads.filter((lead) => lead.owner_id === settings.owner_id);
+    const ownerDrafts = drafts.filter((draft) => draft.owner_id === settings.owner_id);
+    const ownerTemplates = templates.filter((template) => template.owner_id === settings.owner_id);
+    const eligible = ownerLeads.filter((lead) =>
+      canCreateFollowUpDraft(
+        lead,
+        ownerDrafts.filter((draft) => draft.lead_id === lead.id),
+        new Date(),
+        settings.follow_up_delay_days
+      ).allowed
+    );
+    eligibleCount += eligible.length;
+
+    for (const lead of eligible) {
     const latestDrafts = drafts.filter((draft) => draft.lead_id === lead.id);
     const stillEligible = canCreateFollowUpDraft(lead, latestDrafts, new Date(), settings.follow_up_delay_days);
     if (!stillEligible.allowed) continue;
 
-    const { subject, body } = buildFollowUpDraft(lead, settings, templates);
+    const { subject, body } = buildFollowUpDraft(lead, settings, ownerTemplates);
     let gmail: { draftId: string | null; messageId: string | null; threadId: string | null } = {
       draftId: null,
       messageId: null,
@@ -84,7 +87,7 @@ export async function GET(request: NextRequest) {
 
     const now = new Date().toISOString();
     const { error } = await admin.from("email_drafts").insert({
-      owner_id: owner.id,
+      owner_id: lead.owner_id,
       lead_id: lead.id,
       draft_type: "follow_up",
       subject,
@@ -99,7 +102,7 @@ export async function GET(request: NextRequest) {
     if (!error) {
       createdCount += 1;
       await admin.from("activities").insert({
-        owner_id: owner.id,
+        owner_id: lead.owner_id,
         lead_id: lead.id,
         activity_type: "Follow-up created",
         description: "Follow-up draft created",
@@ -108,10 +111,11 @@ export async function GET(request: NextRequest) {
       });
     }
   }
+  }
 
   return NextResponse.json({
     ok: true,
-    eligible_count: eligible.length,
+    eligible_count: eligibleCount,
     created_count: createdCount,
     message: "Follow-up drafts were created for review only. No email was sent."
   });
