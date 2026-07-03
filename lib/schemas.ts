@@ -46,9 +46,19 @@ export const draftInputSchema = z.object({
   generated_by: z.enum(generatedByValues).default("manual")
 });
 
+export const draftUpdateSchema = z.object({
+  subject: z.string().trim().min(1).max(140).optional(),
+  body: z.string().trim().min(1).max(5000).optional(),
+  state: z.enum(draftStates).optional(),
+  gmail_draft_id: nullableText,
+  gmail_message_id: nullableText
+});
+
 export const sendDraftSchema = z.object({
   draft_id: z.string().uuid(),
-  final_confirmation: z.literal(true)
+  final_confirmation: z.literal(true),
+  subject: z.string().trim().min(1).max(140).optional(),
+  body: z.string().trim().min(1).max(5000).optional()
 });
 
 export const generateDraftRequestSchema = z.object({
@@ -66,6 +76,10 @@ export const replyClassificationSchema = z.object({
   category: z.enum(replyCategories),
   confidence: z.number().min(0).max(1),
   explanation: z.string().trim().min(1).max(300)
+});
+
+export const replyOverrideSchema = z.object({
+  classification: z.enum(replyCategories)
 });
 
 export const templateSchema = z.object({

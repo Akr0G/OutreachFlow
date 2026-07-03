@@ -17,6 +17,7 @@ export type ReplyCategory = (typeof replyCategories)[number];
 export type ObservedWebsiteIssue = (typeof observedWebsiteIssues)[number];
 export type ActivityType = (typeof activityTypes)[number];
 export type TemplateType = (typeof templateTypes)[number];
+export type WebsiteQualityTier = 0 | 1 | 2 | 3;
 
 export type JsonRecord = Record<string, unknown>;
 
@@ -150,6 +151,8 @@ export type ResearchCandidate = {
   source: "google_places" | "demo";
   source_url: string | null;
   observed_website_issues: ObservedWebsiteIssue[];
+  website_quality_tier: WebsiteQualityTier;
+  website_quality_label: string;
   issue_details: string | null;
   notes: string | null;
   confidence: number;

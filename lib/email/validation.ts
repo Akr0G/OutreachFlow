@@ -25,13 +25,13 @@ export function countWords(value: string) {
 }
 
 export function bodyExcludingSignature(body: string, signature?: string | null) {
-  if (!signature) return body.trim();
   const trimmedBody = body.trim();
+  if (!signature) return trimmedBody.replace(/\n\nBest,[\s\S]*$/i, "").trim();
   const trimmedSignature = signature.trim();
   if (trimmedSignature && trimmedBody.endsWith(trimmedSignature)) {
     return trimmedBody.slice(0, -trimmedSignature.length).trim();
   }
-  return trimmedBody;
+  return trimmedBody.replace(/\n\nBest,[\s\S]*$/i, "").trim();
 }
 
 export function validateInitialEmailDraft(
@@ -43,8 +43,8 @@ export function validateInitialEmailDraft(
   const draftBodyWithoutSignature = bodyExcludingSignature(draft.body, signature);
   const wordCount = countWords(draftBodyWithoutSignature);
 
-  if (wordCount < 65 || wordCount > 100) {
-    errors.push("Initial email body must be between 65 and 100 words, excluding the signature.");
+  if (wordCount < 65 || wordCount > 130) {
+    errors.push("Initial email body must be between 65 and 130 words, excluding the signature.");
   }
   if (!draft.body.includes(mandatoryOptOutSentence)) {
     errors.push("Initial email must include the required opt-out sentence exactly.");

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getOwnerContext } from "@/lib/auth/owner";
+import { syncGmailReplies } from "@/lib/gmail/reply-sync";
 import { rateLimit } from "@/lib/rate-limit";
 
 export async function GET() {
@@ -15,9 +16,12 @@ async function syncReplies() {
   const limited = rateLimit(`gmail-sync:${owner.id}`, 10, 60_000);
   if (!limited.allowed) return NextResponse.json({ error: "Too many sync attempts." }, { status: 429 });
 
-  return NextResponse.json({
-    ok: true,
-    synced: 0,
-    message: "Reply sync endpoint is ready. Configure Gmail watch and stored history IDs to process mailbox changes."
-  });
+  try {
+    return NextResponse.json(await syncGmailReplies(owner));
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Reply sync failed." },
+      { status: 502 }
+    );
+  }
 }

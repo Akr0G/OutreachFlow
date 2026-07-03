@@ -47,4 +47,21 @@ Akhil`;
       expect(result.valid).toBe(true);
     }
   });
+
+  it("keeps exact LLC business names in compliant local drafts", () => {
+    const lead = {
+      ...sampleLeads[0],
+      business_name: "Turn of the Wrench, LLC",
+      contact_name: null,
+      observed_website_issues: ["Outdated design" as const],
+      issue_details: "Website listing is not using an HTTPS URL."
+    };
+    const drafts = draftVariations.map((variation) => buildLocalDraft(lead, "initial", sampleSettings, variation));
+
+    for (const draft of drafts) {
+      const result = validateInitialEmailDraft(draft, lead, "Best\nAkhil");
+      expect(draft.body).toContain("Turn of the Wrench, LLC");
+      expect(result.valid).toBe(true);
+    }
+  });
 });

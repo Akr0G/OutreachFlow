@@ -117,6 +117,39 @@ export async function renewGmailWatch(refreshToken: string) {
   };
 }
 
+export type GmailThreadMessage = {
+  id: string;
+  threadId: string;
+  labelIds: string[];
+  internalDate: string | null;
+  from: string | null;
+  subject: string | null;
+  snippet: string | null;
+  body: string;
+};
+
+export async function getGmailThreadMessages(refreshToken: string, threadId: string): Promise<GmailThreadMessage[]> {
+  const gmail = gmailClientFromRefreshToken(refreshToken);
+  const response = await gmail.users.threads.get({
+    userId: "me",
+    id: threadId,
+    format: "full"
+  });
+
+  return (response.data.messages ?? [])
+    .filter((message) => message.id && message.threadId)
+    .map((message) => ({
+      id: message.id!,
+      threadId: message.threadId!,
+      labelIds: message.labelIds ?? [],
+      internalDate: message.internalDate ?? null,
+      from: getHeader(message.payload?.headers, "From"),
+      subject: getHeader(message.payload?.headers, "Subject"),
+      snippet: message.snippet ?? null,
+      body: extractPlainTextBody(message.payload) || message.snippet || ""
+    }));
+}
+
 export function createMimeMessage(input: GmailDraftInput) {
   const headers = [
     `To: ${input.to}`,
@@ -132,4 +165,36 @@ export function createMimeMessage(input: GmailDraftInput) {
 function encodeSubject(subject: string) {
   if (/^[\x00-\x7F]*$/.test(subject)) return subject;
   return `=?UTF-8?B?${Buffer.from(subject, "utf8").toString("base64")}?=`;
+}
+
+function getHeader(headers: { name?: string | null; value?: string | null }[] | undefined, name: string) {
+  return headers?.find((header) => header.name?.toLowerCase() === name.toLowerCase())?.value ?? null;
+}
+
+function extractPlainTextBody(payload: unknown): string {
+  const part = payload as {
+    mimeType?: string | null;
+    body?: { data?: string | null };
+    parts?: unknown[];
+  } | null;
+  if (!part) return "";
+
+  if (part.mimeType === "text/plain" && part.body?.data) {
+    return decodeBase64Url(part.body.data).trim();
+  }
+
+  for (const child of part.parts ?? []) {
+    const text = extractPlainTextBody(child);
+    if (text) return text;
+  }
+
+  if (part.body?.data) {
+    return decodeBase64Url(part.body.data).trim();
+  }
+
+  return "";
+}
+
+function decodeBase64Url(value: string) {
+  return Buffer.from(value.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8");
 }

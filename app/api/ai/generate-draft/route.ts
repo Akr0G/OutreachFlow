@@ -8,7 +8,7 @@ import { rateLimit } from "@/lib/rate-limit";
 import { generateDraftRequestSchema } from "@/lib/schemas";
 import { getLeadBundle, getRawSettings, listTemplates } from "@/lib/supabase/repository";
 import { createSupabaseWorkspaceClient, isSupabaseConfigured } from "@/lib/supabase/server";
-import type { EmailDraft, GeneratedEmailDraft } from "@/lib/types";
+import type { EmailDraft, GeneratedBy, GeneratedEmailDraft } from "@/lib/types";
 
 export async function POST(request: NextRequest) {
   const owner = await getOwnerContext();
@@ -35,27 +35,44 @@ export async function POST(request: NextRequest) {
 
   const variation = pickDraftVariation(`${lead.id}:${Date.now()}:${parsed.data.draft_type}`);
   let generated: GeneratedEmailDraft;
-  try {
-    const apiKey = resolveOpenAiApiKey(settings);
-    generated = await generateEmailDraftWithOpenAI(apiKey, {
-      lead,
-      settings,
-      templates,
-      draft_type: parsed.data.draft_type,
-      variation
-    });
-  } catch {
-    if (isSupabaseConfigured()) {
-      return NextResponse.json({ error: "OpenAI generation failed." }, { status: 502 });
+  let generatedBy: GeneratedBy = "manual";
+
+  if (process.env.USE_OPENAI_DRAFTS === "true") {
+    try {
+      const apiKey = resolveOpenAiApiKey(settings);
+      generated = await generateEmailDraftWithOpenAI(apiKey, {
+        lead,
+        settings,
+        templates,
+        draft_type: parsed.data.draft_type,
+        variation
+      });
+      generatedBy = "ai";
+    } catch {
+      generated = buildLocalDraft(lead, parsed.data.draft_type, settings, variation);
+      generatedBy = "manual";
     }
+  } else {
     generated = buildLocalDraft(lead, parsed.data.draft_type, settings, variation);
   }
 
   const signature = templates.find((template) => template.template_type === "signature")?.content;
   if (parsed.data.draft_type === "initial") {
-    const validation = validateInitialEmailDraft(generated, lead, signature);
+    let validation = validateInitialEmailDraft(generated, lead, signature);
+    if (!validation.valid && generatedBy === "ai") {
+      generated = buildLocalDraft(lead, parsed.data.draft_type, settings, variation);
+      generatedBy = "manual";
+      validation = validateInitialEmailDraft(generated, lead, signature);
+    }
     if (!validation.valid) {
-      return NextResponse.json({ error: "Generated draft failed validation.", details: validation.errors }, { status: 422 });
+      return NextResponse.json(
+        {
+          error: "Generated draft failed validation.",
+          details: validation.errors,
+          word_count: validation.wordCount
+        },
+        { status: 422 }
+      );
     }
   }
 
@@ -70,7 +87,7 @@ export async function POST(request: NextRequest) {
         state: "awaiting_review",
         gmail_draft_id: null,
         gmail_message_id: null,
-        generated_by: "ai",
+        generated_by: generatedBy,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         sent_at: null
@@ -89,7 +106,7 @@ export async function POST(request: NextRequest) {
       subject: generated.subject,
       body: generated.body,
       state: "awaiting_review",
-      generated_by: "ai",
+      generated_by: generatedBy,
       created_at: now,
       updated_at: now
     })

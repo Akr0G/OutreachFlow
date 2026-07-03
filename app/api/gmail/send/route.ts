@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getOwnerContext } from "@/lib/auth/owner";
 import { canSendDraft } from "@/lib/business-rules";
-import { sendGmailDraft } from "@/lib/gmail/client";
+import { createGmailDraft, sendGmailDraft, updateGmailDraft } from "@/lib/gmail/client";
 import { rateLimit } from "@/lib/rate-limit";
 import { sendDraftSchema } from "@/lib/schemas";
 import { decryptSecret } from "@/lib/security/crypto";
@@ -42,20 +42,50 @@ export async function POST(request: NextRequest) {
     .eq("state", "sent")
     .gte("sent_at", `${today}T00:00:00.000Z`);
 
-  const sendCheck = canSendDraft(lead as Lead, draft as EmailDraft, settings, count ?? 0);
+  const draftToSend = {
+    ...(draft as EmailDraft),
+    subject: parsed.data.subject ?? draft.subject,
+    body: parsed.data.body ?? draft.body
+  };
+  const sendCheck = canSendDraft(lead as Lead, draftToSend, settings, count ?? 0);
   if (!sendCheck.allowed) return NextResponse.json({ error: sendCheck.reason }, { status: 409 });
-  if (!settings.encrypted_gmail_refresh_token || !draft.gmail_draft_id) {
-    return NextResponse.json({ error: "Gmail draft is not ready." }, { status: 409 });
+  if (!settings.encrypted_gmail_refresh_token) {
+    return NextResponse.json({ error: "Gmail is not connected." }, { status: 409 });
   }
 
-  const result = await sendGmailDraft(decryptSecret(settings.encrypted_gmail_refresh_token), draft.gmail_draft_id);
+  const refreshToken = decryptSecret(settings.encrypted_gmail_refresh_token);
+  const gmailInput = {
+    from: settings.sender_email,
+    to: lead.email,
+    subject: draftToSend.subject,
+    body: draftToSend.body,
+    threadId: lead.gmail_thread_id
+  };
+  const preparedDraft = draft.gmail_draft_id
+    ? await updateGmailDraft(refreshToken, draft.gmail_draft_id, gmailInput)
+    : await createGmailDraft(refreshToken, gmailInput);
+  if (!preparedDraft.draftId) {
+    return NextResponse.json({ error: "Gmail draft could not be prepared." }, { status: 502 });
+  }
+
+  const result = await sendGmailDraft(refreshToken, preparedDraft.draftId);
   const now = new Date().toISOString();
-  await supabase
+  const { data: updatedDraft } = await supabase
     .from("email_drafts")
-    .update({ state: "sent", sent_at: now, gmail_message_id: result.messageId, updated_at: now })
+    .update({
+      subject: draftToSend.subject,
+      body: draftToSend.body,
+      state: "sent",
+      sent_at: now,
+      gmail_draft_id: preparedDraft.draftId,
+      gmail_message_id: result.messageId,
+      updated_at: now
+    })
     .eq("owner_id", owner.id)
-    .eq("id", draft.id);
-  await supabase
+    .eq("id", draft.id)
+    .select("*")
+    .single();
+  const { data: updatedLead } = await supabase
     .from("leads")
     .update({
       status: "Sent",
@@ -67,7 +97,9 @@ export async function POST(request: NextRequest) {
       updated_at: now
     })
     .eq("owner_id", owner.id)
-    .eq("id", lead.id);
+    .eq("id", lead.id)
+    .select("*")
+    .single();
   await supabase.from("activities").insert({
     owner_id: owner.id,
     lead_id: lead.id,
@@ -77,5 +109,5 @@ export async function POST(request: NextRequest) {
     created_at: now
   });
 
-  return NextResponse.json({ ok: true, ...result });
+  return NextResponse.json({ ok: true, ...result, draft: updatedDraft, lead: updatedLead });
 }

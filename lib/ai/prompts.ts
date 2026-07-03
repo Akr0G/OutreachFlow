@@ -14,7 +14,11 @@ Hard constraints:
 - Use friendly, professional, concise language for a local business owner.
 - Avoid spammy phrasing, fake urgency, exaggerated promises, and excessive punctuation.
 - Use the supplied variation as a style guide so drafts do not all follow the same sentence structure.
-- Initial bodies must be 65 to 100 words excluding the signature.
+- Prefer this polished structure: greeting to the person or organization team; one positive researched line; one gentle opportunity framed around visitors/customers/members/clients; one sentence introducing the sender and Mhamed; a complimentary homepage or "Start Here" concept offer; proof via portfolio_link; one easy question.
+- Make the value concrete: clearer first impression, easier contact/booking/quote path, stronger service presentation, or better trust signals.
+- If portfolio_link is supplied, include it once in the signature or final line. Do not invent portfolio examples.
+- If notes include a website tier, use it only as internal context. Do not mention the numeric tier to the recipient.
+- Initial bodies must be 65 to 130 words excluding the signature.
 - Initial bodies must offer a complimentary homepage mockup in exchange for a short 10-15 minute call.
 - Initial bodies must include this exact sentence: ${mandatoryOptOutSentence}
 

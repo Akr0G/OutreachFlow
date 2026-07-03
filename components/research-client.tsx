@@ -19,11 +19,46 @@ type CandidateState = ResearchCandidate & {
   importedLeadId?: string;
 };
 
+const businessTypeOptions = [
+  "All businesses",
+  "Dentists",
+  "Med spas",
+  "Chiropractors",
+  "Physical therapy clinics",
+  "Auto repair shops",
+  "Roofing companies",
+  "HVAC companies",
+  "Plumbers",
+  "Electricians",
+  "Landscapers",
+  "Restaurants",
+  "Hair salons",
+  "Gyms",
+  "Law firms",
+  "Real estate agencies"
+];
+
+const locationOptions = [
+  "near me",
+  "Middletown, DE",
+  "Wilmington, DE",
+  "Newark, DE",
+  "Dover, DE",
+  "Philadelphia, PA",
+  "Baltimore, MD",
+  "Washington, DC",
+  "New York, NY",
+  "Boston, MA"
+];
+
+type TierFilter = "all" | "0" | "1" | "2" | "3";
+
 export function ResearchClient() {
-  const [businessType, setBusinessType] = useState("dentists");
+  const [businessType, setBusinessType] = useState(businessTypeOptions[0]);
   const [location, setLocation] = useState("near me");
   const [limit, setLimit] = useState(5);
   const [includeWebsiteResearch, setIncludeWebsiteResearch] = useState(true);
+  const [tierFilter, setTierFilter] = useState<TierFilter>("all");
   const [candidates, setCandidates] = useState<CandidateState[]>([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
@@ -95,7 +130,11 @@ export function ResearchClient() {
     }
   }
 
-  const resultCount = useMemo(() => candidates.length, [candidates]);
+  const filteredCandidates = useMemo(() => {
+    if (tierFilter === "all") return candidates;
+    return candidates.filter((candidate) => String(candidate.website_quality_tier) === tierFilter);
+  }, [candidates, tierFilter]);
+  const resultCount = filteredCandidates.length;
 
   return (
     <div className="space-y-6">
@@ -110,12 +149,33 @@ export function ResearchClient() {
           <CardTitle>Local Search</CardTitle>
         </CardHeader>
         <CardContent className="space-y-5">
-          <div className="grid gap-4 lg:grid-cols-[1fr_1fr_120px_auto] lg:items-end">
+          <div className="grid gap-4 lg:grid-cols-[1fr_1fr_160px_120px_auto] lg:items-end">
             <Field label="Business type">
-              <Input value={businessType} onChange={(event) => setBusinessType(event.target.value)} />
+              <SelectControl value={businessType} onChange={setBusinessType} label="Business type">
+                {businessTypeOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </SelectControl>
             </Field>
             <Field label="Location">
-              <Input value={location} onChange={(event) => setLocation(event.target.value)} />
+              <SelectControl value={location} onChange={setLocation} label="Location">
+                {locationOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </SelectControl>
+            </Field>
+            <Field label="Website tier">
+              <SelectControl value={tierFilter} onChange={(value) => setTierFilter(value as TierFilter)} label="Website tier">
+                <option value="all">All tiers</option>
+                <option value="0">Tier 0 - No website</option>
+                <option value="1">Tier 1 - Needs work</option>
+                <option value="2">Tier 2 - Improvable</option>
+                <option value="3">Tier 3 - Strong</option>
+              </SelectControl>
             </Field>
             <Field label="Results">
               <Input type="number" min={1} max={8} value={limit} onChange={(event) => setLimit(Number(event.target.value))} />
@@ -139,11 +199,13 @@ export function ResearchClient() {
 
       <div className="flex items-center justify-between">
         <h2 className="text-base font-semibold tracking-normal text-slate-950">Candidates</h2>
-        <span className="text-sm text-slate-500">{resultCount} found</span>
+        <span className="text-sm text-slate-500">
+          {resultCount} shown{candidates.length !== resultCount ? ` / ${candidates.length} found` : ""}
+        </span>
       </div>
 
       <div className="grid gap-4 xl:grid-cols-2">
-        {candidates.map((candidate) => (
+        {filteredCandidates.map((candidate) => (
           <CandidateCard
             key={candidate.id}
             candidate={candidate}
@@ -156,6 +218,11 @@ export function ResearchClient() {
       {!loading && candidates.length === 0 && (
         <div className="rounded-md border border-dashed border-border bg-slate-50 p-6 text-sm text-slate-500">
           No candidates loaded.
+        </div>
+      )}
+      {!loading && candidates.length > 0 && filteredCandidates.length === 0 && (
+        <div className="rounded-md border border-dashed border-border bg-slate-50 p-6 text-sm text-slate-500">
+          No candidates match the selected tier.
         </div>
       )}
     </div>
@@ -186,6 +253,9 @@ function CandidateCard({
           </div>
           <div className="flex flex-wrap gap-2">
             <Badge className="border-slate-200 bg-slate-50 text-slate-700">{candidate.source.replace("_", " ")}</Badge>
+            <Badge className={websiteTierClassName(candidate.website_quality_tier)}>
+              Tier {candidate.website_quality_tier}: {candidate.website_quality_label}
+            </Badge>
             <Badge className="border-emerald-200 bg-emerald-50 text-emerald-800">
               {Math.round(candidate.confidence * 100)}%
             </Badge>
@@ -275,6 +345,29 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
+function SelectControl({
+  value,
+  onChange,
+  children,
+  label
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  children: ReactNode;
+  label: string;
+}) {
+  return (
+    <select
+      aria-label={label}
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      className="h-10 w-full rounded-md border border-border bg-white px-3 text-sm text-slate-900 shadow-sm focus:border-teal-600 focus:outline-none focus:ring-2 focus:ring-teal-600/20"
+    >
+      {children}
+    </select>
+  );
+}
+
 function Info({ label, value }: { label: string; value: string | null }) {
   return (
     <div>
@@ -287,9 +380,17 @@ function Info({ label, value }: { label: string; value: string | null }) {
 function appendResearchNotes(candidate: CandidateState) {
   const parts = [
     candidate.notes,
+    `Website tier: ${candidate.website_quality_tier} - ${candidate.website_quality_label}.`,
     candidate.phone ? `Phone from listing: ${candidate.phone}.` : null,
     candidate.source_url ? `Source URL: ${candidate.source_url}.` : null,
     candidate.needs_email_verification ? "Contact details require owner verification before sending." : null
   ];
   return parts.filter(Boolean).join(" ");
+}
+
+function websiteTierClassName(tier: number) {
+  if (tier === 3) return "border-emerald-200 bg-emerald-50 text-emerald-800";
+  if (tier === 2) return "border-sky-200 bg-sky-50 text-sky-800";
+  if (tier === 1) return "border-amber-200 bg-amber-50 text-amber-800";
+  return "border-rose-200 bg-rose-50 text-rose-800";
 }

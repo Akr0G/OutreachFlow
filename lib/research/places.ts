@@ -1,4 +1,5 @@
 import { researchWebsite } from "@/lib/research/website";
+import { scoreWebsiteQuality } from "@/lib/research/website-score";
 import type { ResearchSearchInput } from "@/lib/schemas";
 import type { ResearchCandidate } from "@/lib/types";
 
@@ -17,6 +18,7 @@ type GooglePlace = {
 export async function searchResearchCandidates(input: ResearchSearchInput): Promise<ResearchCandidate[]> {
   const apiKey = process.env.GOOGLE_PLACES_API_KEY ?? process.env.GOOGLE_MAPS_API_KEY;
   if (!apiKey) return demoCandidates(input);
+  const businessQuery = normalizeBusinessQuery(input.business_type);
 
   const response = await fetch("https://places.googleapis.com/v1/places:searchText", {
     method: "POST",
@@ -36,7 +38,7 @@ export async function searchResearchCandidates(input: ResearchSearchInput): Prom
       ].join(",")
     },
     body: JSON.stringify({
-      textQuery: `${input.business_type} near ${input.location}`,
+      textQuery: `${businessQuery} near ${input.location}`,
       pageSize: input.limit
     })
   });
@@ -53,9 +55,14 @@ export async function searchResearchCandidates(input: ResearchSearchInput): Prom
   return candidates;
 }
 
+function normalizeBusinessQuery(value: string) {
+  return value.toLowerCase() === "all businesses" ? "businesses" : value;
+}
+
 async function placeToCandidate(place: GooglePlace, input: ResearchSearchInput): Promise<ResearchCandidate> {
   const website = place.websiteUri ?? null;
   const websiteResearch = input.include_website_research ? await researchWebsite(website) : null;
+  const fallbackQuality = scoreWebsiteQuality({ websiteUrl: website, issues: [] });
   const businessName = place.displayName?.text ?? "Unnamed business";
   const industry = place.primaryTypeDisplayName?.text ?? input.business_type;
   const notes = [
@@ -79,6 +86,8 @@ async function placeToCandidate(place: GooglePlace, input: ResearchSearchInput):
     source: "google_places",
     source_url: place.googleMapsUri ?? null,
     observed_website_issues: websiteResearch?.issues ?? [],
+    website_quality_tier: websiteResearch?.qualityTier ?? fallbackQuality.tier,
+    website_quality_label: websiteResearch?.qualityLabel ?? fallbackQuality.label,
     issue_details: websiteResearch?.issueDetails ?? null,
     notes,
     confidence: websiteResearch?.email ? 0.78 : 0.56,
@@ -114,22 +123,32 @@ async function demoCandidates(input: ResearchSearchInput): Promise<ResearchCandi
     }
   ];
 
-  return base.slice(0, input.limit).map((item) => ({
-    id: crypto.randomUUID(),
-    business_name: item.business_name,
-    contact_name: null,
-    email: item.email,
-    phone: "(555) 010-2000",
-    website_url: item.website_url,
-    industry: item.industry,
-    location: input.location,
-    address: input.location,
-    source: "demo",
-    source_url: null,
-    observed_website_issues: [...item.observed_website_issues],
-    issue_details: item.issue_details,
-    notes: `Demo lead for "${input.business_type}" near "${input.location}". Replace with Google Places by setting GOOGLE_PLACES_API_KEY. Verify contact details before outreach.`,
-    confidence: item.email ? 0.72 : 0.42,
-    needs_email_verification: true
-  }));
+  return base.slice(0, input.limit).map((item) => {
+    const quality = scoreWebsiteQuality({
+      websiteUrl: item.website_url,
+      issues: [...item.observed_website_issues],
+      issueDetails: item.issue_details
+    });
+
+    return {
+      id: crypto.randomUUID(),
+      business_name: item.business_name,
+      contact_name: null,
+      email: item.email,
+      phone: "(555) 010-2000",
+      website_url: item.website_url,
+      industry: item.industry,
+      location: input.location,
+      address: input.location,
+      source: "demo",
+      source_url: null,
+      observed_website_issues: [...item.observed_website_issues],
+      website_quality_tier: quality.tier,
+      website_quality_label: quality.label,
+      issue_details: item.issue_details,
+      notes: `Demo lead for "${input.business_type}" near "${input.location}". Website quality: Tier ${quality.tier} - ${quality.label}. Replace with Google Places by setting GOOGLE_PLACES_API_KEY. Verify contact details before outreach.`,
+      confidence: item.email ? 0.72 : 0.42,
+      needs_email_verification: true
+    };
+  });
 }
