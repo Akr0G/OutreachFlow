@@ -8,7 +8,6 @@ import {
   Mail,
   MessageSquare,
   Plus,
-  RefreshCw,
   Search,
   Send,
   Upload,
@@ -16,6 +15,7 @@ import {
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { buttonClasses } from "@/components/ui/button";
+import { SyncRepliesButton } from "@/components/sync-replies-button";
 import { StatusBadge } from "@/components/status-badge";
 import { leadStatuses } from "@/lib/constants";
 import { canCreateFollowUpDraft } from "@/lib/business-rules";
@@ -73,7 +73,7 @@ export default async function DashboardPage() {
           <QuickAction href="/leads/new" icon={Plus} label="Add Lead" />
           <QuickAction href="/import" icon={Upload} label="Import CSV" />
           <QuickAction href="/drafts" icon={FilePenLine} label="View Drafts" />
-          <QuickAction href="/api/gmail/sync" icon={RefreshCw} label="Sync Replies" />
+          <SyncRepliesButton />
         </div>
       </div>
 

@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   BarChart3,
   FileText,
@@ -24,6 +27,13 @@ const navItems = [
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+
+  function isActive(href: string) {
+    if (href === "/") return pathname === "/";
+    return pathname === href || pathname.startsWith(`${href}/`);
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <aside className="fixed inset-y-0 left-0 z-20 hidden w-64 border-r border-border bg-white lg:block">
@@ -38,16 +48,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
         <nav className="space-y-1 p-3" aria-label="Primary navigation">
           {navItems.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-950"
-              )}
-            >
-              <item.icon className="h-4 w-4" aria-hidden="true" />
-              {item.label}
-            </Link>
+            <NavLink key={item.href} item={item} active={isActive(item.href)} />
           ))}
         </nav>
       </aside>
@@ -66,7 +67,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <Link
                   key={item.href}
                   href={item.href}
-                  className="rounded-md px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100"
+                  aria-current={isActive(item.href) ? "page" : undefined}
+                  className={cn(
+                    "rounded-md px-3 py-2 text-sm font-medium text-slate-600 transition duration-150 ease-out hover:bg-slate-100",
+                    isActive(item.href) && "bg-teal-50 text-teal-800"
+                  )}
                 >
                   {item.label}
                 </Link>
@@ -81,5 +86,31 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <main className="px-4 py-6 sm:px-6 lg:px-8">{children}</main>
       </div>
     </div>
+  );
+}
+
+function NavLink({
+  item,
+  active
+}: {
+  item: (typeof navItems)[number];
+  active: boolean;
+}) {
+  return (
+    <Link
+      href={item.href}
+      aria-current={active ? "page" : undefined}
+      className={cn(
+        "group flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-slate-700 transition duration-150 ease-out",
+        "hover:-translate-y-0.5 hover:bg-slate-100 hover:text-slate-950 active:translate-y-0",
+        active && "bg-teal-50 text-teal-800 shadow-sm"
+      )}
+    >
+      <item.icon
+        className={cn("h-4 w-4 transition-transform duration-150 ease-out", active && "scale-110")}
+        aria-hidden="true"
+      />
+      {item.label}
+    </Link>
   );
 }

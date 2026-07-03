@@ -1,8 +1,22 @@
 import { mandatoryOptOutSentence } from "@/lib/constants";
-import type { AppSettings, GeneratedEmailDraft, Lead, ObservedWebsiteIssue } from "@/lib/types";
+import type {
+  AppSettings,
+  GeneratedEmailDraft,
+  Lead,
+  ObservedWebsiteIssue
+} from "@/lib/types";
+
+type DraftSettings = Pick<
+  AppSettings,
+  | "sender_name"
+  | "agency_name"
+  | "agency_website"
+  | "portfolio_link"
+  | "calendly_link"
+>;
 
 export type DraftVariation = {
-  key: string;
+  key: "mockup-first" | "customer-path" | "local-owner";
   subjectTone: string;
   openingAngle: string;
   ctaAngle: string;
@@ -11,143 +25,212 @@ export type DraftVariation = {
 export const draftVariations: DraftVariation[] = [
   {
     key: "mockup-first",
-    subjectTone: "complimentary homepage mockup",
-    openingAngle: "practical and direct",
-    ctaAngle: "short call in exchange for a mockup"
+    subjectTone: "homepage idea",
+    openingAngle: "specific website observation",
+    ctaAngle: "show the homepage concept"
   },
   {
     key: "customer-path",
-    subjectTone: "making the next step clearer",
-    openingAngle: "focused on customer clarity",
-    ctaAngle: "simple direction before a short call"
+    subjectTone: "clearer customer path",
+    openingAngle: "customer experience",
+    ctaAngle: "show a clearer homepage direction"
   },
   {
     key: "local-owner",
     subjectTone: "local website idea",
-    openingAngle: "neighborly and concise",
-    ctaAngle: "low-pressure mockup offer"
+    openingAngle: "friendly and concise",
+    ctaAngle: "low-pressure Zoom walkthrough"
   }
 ];
 
 export function pickDraftVariation(seed = crypto.randomUUID()) {
-  const total = Array.from(seed).reduce((sum, char) => sum + char.charCodeAt(0), 0);
+  const total = Array.from(seed).reduce(
+    (sum, char) => sum + char.charCodeAt(0),
+    0
+  );
+
   return draftVariations[total % draftVariations.length];
 }
 
 export function buildLocalDraft(
   lead: Lead,
   type: "initial" | "follow_up",
-  settings: Pick<AppSettings, "sender_name" | "agency_name" | "agency_website" | "portfolio_link" | "calendly_link">,
+  settings: DraftSettings,
   variation = pickDraftVariation()
 ): GeneratedEmailDraft {
-  if (type === "follow_up") return buildFollowUpDraft(lead, settings, variation);
+  if (type === "follow_up") {
+    return buildFollowUpDraft(lead, settings, variation);
+  }
+
   return buildInitialDraft(lead, settings, variation);
 }
 
 function buildInitialDraft(
   lead: Lead,
-  settings: Pick<AppSettings, "sender_name" | "agency_name" | "agency_website" | "portfolio_link" | "calendly_link">,
+  settings: DraftSettings,
   variation: DraftVariation
 ): GeneratedEmailDraft {
-  const issue = lead.observed_website_issues[0] ?? lead.issue_details;
-  const greeting = lead.contact_name ? `Hi ${lead.contact_name},` : `Hi ${lead.business_name} Team,`;
-  const praise = buildPraiseLine(lead);
-  const opportunity = buildOpportunityLine(issue);
-  const conceptTarget = shortBusinessName(lead.business_name);
-  const introduction = `My friend Mhamed and I run ${settings.agency_name}, helping make websites clearer and easier to navigate.`;
-  const signature = buildSignature(settings);
+  const greeting = lead.contact_name
+    ? `Hi ${lead.contact_name},`
+    : `Hi ${shortBusinessName(lead.business_name)} Team,`;
 
-  if (variation.key === "customer-path") {
-    return {
-      subject: `A few website ideas for ${lead.business_name}`,
-      body: `${greeting}\n\n${praise} ${opportunity} ${introduction} We would love to create a complimentary homepage or "Start Here" concept tailored to ${conceptTarget}. Would you be open to seeing a few ideas? ${mandatoryOptOutSentence}\n\n${signature}`
-    };
-  }
-
-  if (variation.key === "local-owner") {
-    return {
-      subject: `Website idea for ${lead.business_name}`,
-      body: `${greeting}\n\n${praise} ${opportunity} ${introduction} We can put together a complimentary homepage or "Start Here" concept tailored to ${conceptTarget}. Would you be open to seeing a few ideas? ${mandatoryOptOutSentence}\n\n${signature}`
-    };
-  }
+  const issue = lead.observed_website_issues?.[0] ?? lead.issue_details;
+  const observationParagraph = buildObservationParagraph(lead, issue);
+  const agencyParagraph = buildAgencyParagraph(settings, variation);
+  const conceptParagraph = buildConceptParagraph(lead, variation);
+  const callToAction = buildCallToAction();
 
   return {
-    subject: `Homepage concept for ${lead.business_name}`,
-    body: `${greeting}\n\n${praise} ${opportunity} ${introduction} We would love to create a complimentary homepage or "Start Here" concept tailored to ${conceptTarget}. Would you be open to seeing a few ideas? ${mandatoryOptOutSentence}\n\n${signature}`
+    subject: buildSubject(lead, variation),
+    body: [
+      greeting,
+      observationParagraph,
+      agencyParagraph,
+      conceptParagraph,
+      callToAction,
+      mandatoryOptOutSentence,
+      buildSignature(settings)
+    ].join("\n\n")
   };
 }
 
 function buildFollowUpDraft(
   lead: Lead,
-  settings: Pick<AppSettings, "sender_name" | "agency_name" | "agency_website" | "portfolio_link" | "calendly_link">,
+  settings: DraftSettings,
   variation: DraftVariation
 ): GeneratedEmailDraft {
   const greeting = lead.contact_name ? `Hi ${lead.contact_name},` : "Hi,";
-  const signature = buildSignature(settings, false);
+  const businessName = shortBusinessName(lead.business_name);
+
+  return {
+    subject:
+      variation.key === "customer-path"
+        ? `Re: clearer website idea for ${businessName}`
+        : `Following up on ${businessName}`,
+    body: [
+      greeting,
+      `Just following up on the website idea for ${businessName}.`,
+      "Would you be open to a quick 10-15 minute Zoom call to discuss a homepage idea for the business?",
+      mandatoryOptOutSentence,
+      buildSignature(settings, false)
+    ].join("\n\n")
+  };
+}
+
+function buildSubject(lead: Lead, variation: DraftVariation) {
+  const businessName = shortBusinessName(lead.business_name);
 
   if (variation.key === "customer-path") {
-    return {
-      subject: `Re: ${lead.business_name} homepage idea`,
-      body: `${greeting}\n\nQuick follow-up on the complimentary homepage mockup idea for ${lead.business_name}. The goal would be simple: a cleaner path from first impression to contact, booking, or quote request. If that would be useful, I can share a draft direction before a short 10-15 minute call. If not, no worries.\n\n${signature}`
-    };
+    return `A clearer website idea for ${businessName}`;
   }
 
   if (variation.key === "local-owner") {
-    return {
-      subject: `Following up with ${lead.business_name}`,
-      body: `${greeting}\n\nJust circling back on the website idea for ${lead.business_name}. I can keep it lightweight: one complimentary homepage mockup, focused on a cleaner first impression and easier contact flow, then a short 10-15 minute call only if the direction feels useful. If not, no problem at all.\n\n${signature}`
-    };
+    return `Website idea for ${businessName}`;
   }
 
-  return {
-    subject: `Following up on ${lead.business_name}`,
-    body: `${greeting}\n\nJust wanted to follow up on the complimentary homepage mockup idea for ${lead.business_name}. I can put together a simple direction that makes the business, services, and next step easier to scan. If it would be useful, we could walk through it on a short 10-15 minute call. If now is not a fit, no worries.\n\n${signature}`
-  };
+  return `A homepage idea for ${businessName}`;
 }
 
-function formatWebsiteObservation(issue: ObservedWebsiteIssue | string) {
-  const labels: Partial<Record<ObservedWebsiteIssue, string>> = {
-    "Poor mobile responsiveness": "a mobile experience that may be hard to use",
-    "Outdated design": "a website presentation that may feel dated",
-    "Unclear contact options": "contact options that may be hard to find",
-    "Missing calls to action": "the next step for visitors",
-    "Slow-loading pages": "pages that may load slowly",
-    "No website": "no clear website in the listing",
-    "Other observed issue": "a website opportunity worth tightening up"
-  };
-  return labels[issue as ObservedWebsiteIssue] ?? String(issue).trim().slice(0, 120);
-}
+function buildObservationParagraph(
+  lead: Lead,
+  issue: ObservedWebsiteIssue | string | null | undefined
+) {
+  const businessName = lead.business_name;
 
-function buildPraiseLine(lead: Lead) {
-  const audience = lead.industry
-    ? `${lead.industry.toLowerCase()} customers`
-    : lead.location
-      ? `people around ${lead.location}`
-      : "local customers";
-  return `I came across ${lead.business_name} and was impressed by the work you do for ${audience}.`;
-}
-
-function buildOpportunityLine(issue: ObservedWebsiteIssue | string | null) {
-  if (!issue) {
-    return "There may be an opportunity to make the first-time visitor experience even simpler by helping people quickly find the right next step.";
+  if (issue === "No website") {
+    return `I came across ${businessName} and did not see a clear website listed. A simple site could give people one place to understand the services and get in touch.`;
   }
-  return `There may be an opportunity to make the first-time visitor experience simpler, especially around ${formatWebsiteObservation(issue)}.`;
+
+  if (issue === "Poor mobile responsiveness") {
+    return `I came across ${businessName} and saw an opportunity to make the mobile website experience clearer, especially around services and contact information.`;
+  }
+
+  if (issue === "Unclear contact options") {
+    return `I came across ${businessName} and saw an opportunity to make the best contact step easier to find for first-time visitors.`;
+  }
+
+  if (issue === "Missing calls to action") {
+    return `I came across ${businessName} and saw an opportunity to make the next step clearer, whether that is calling, booking, or requesting more information.`;
+  }
+
+  if (issue === "Outdated design") {
+    return `I came across ${businessName} and saw an opportunity to make the website presentation clearer, easier to scan, and more current.`;
+  }
+
+  if (issue === "Slow-loading pages") {
+    return `I came across ${businessName} and saw an opportunity to make the website feel faster and easier to use for first-time visitors.`;
+  }
+
+  if (issue) {
+    return `I came across ${businessName} and saw an opportunity to make the website experience clearer for first-time visitors.`;
+  }
+
+  return `I came across ${businessName} and thought there may be an opportunity to make the website easier for first-time visitors to understand and use.`;
+}
+
+function buildAgencyParagraph(
+  settings: DraftSettings,
+  variation: DraftVariation
+) {
+  if (variation.key === "customer-path") {
+    return `M'hamed and I run ${settings.agency_name}, a small web design studio that helps local businesses make services, contact options, and next steps easier to understand.`;
+  }
+
+  if (variation.key === "local-owner") {
+    return `M'hamed and I run ${settings.agency_name}, a small web design studio that creates clear, modern, mobile-friendly websites for local businesses.`;
+  }
+
+  return `M'hamed and I run ${settings.agency_name}, a small web design studio for local businesses.`;
+}
+
+function buildConceptParagraph(
+  lead: Lead,
+  variation: DraftVariation
+) {
+  const businessName = lead.business_name;
+
+  if (variation.key === "customer-path") {
+    return `We already created a complimentary homepage concept for ${businessName}.`;
+  }
+
+  if (variation.key === "local-owner") {
+    return `We already created a complimentary homepage concept for ${businessName}.`;
+  }
+
+  return `We already created a complimentary homepage concept for ${businessName}.`;
+}
+
+function buildCallToAction() {
+  return "If you're open to a quick 10-15 minute Zoom call, we can show you this homepage concept and discuss next steps if it feels useful.";
 }
 
 function shortBusinessName(name: string) {
-  return name.replace(/\b(LLC|Inc\.?|Co\.?|Company|Studio|Clinic|Practice)\b/gi, "").replace(/\s+/g, " ").trim() || name;
+  return (
+    name
+      .replace(/\b(LLC|Inc\.?|Co\.?|Company|Studio|Clinic|Practice)\b/gi, "")
+      .replace(/\s+/g, " ")
+      .trim() || name
+  );
 }
 
-function buildSignature(
-  settings: Pick<AppSettings, "sender_name" | "agency_name" | "agency_website" | "portfolio_link" | "calendly_link">,
-  includeAgency = true
-) {
+function normalizeUrl(url?: string | null) {
+  return url?.trim().replace(/\/$/, "") ?? "";
+}
+
+function buildSignature(settings: DraftSettings, includeAgency = true) {
+  const agencyWebsite = normalizeUrl(settings.agency_website);
+  const portfolioLink = normalizeUrl(settings.portfolio_link);
+  const sameLink =
+    Boolean(agencyWebsite) &&
+    Boolean(portfolioLink) &&
+    agencyWebsite === portfolioLink;
+
   return [
     "Best,",
-    `${settings.sender_name} & Mhamed`,
+    `${settings.sender_name} & M'hamed`,
     includeAgency ? settings.agency_name : null,
-    settings.agency_website,
-    settings.portfolio_link ? `Portfolio: ${settings.portfolio_link}` : null
+    portfolioLink ? `Portfolio: ${settings.portfolio_link}` : null,
+    agencyWebsite && !sameLink ? `Website: ${settings.agency_website}` : null
   ]
     .filter(Boolean)
     .join("\n");
