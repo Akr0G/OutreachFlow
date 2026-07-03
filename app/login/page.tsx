@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { LoginForm } from "@/components/login-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { getAllowedOwnerEmails } from "@/lib/auth/owner";
 
 export default function LoginPage() {
   return (
@@ -11,7 +12,7 @@ export default function LoginPage() {
         </CardHeader>
         <CardContent>
           <Suspense fallback={null}>
-            <LoginForm />
+            <LoginForm allowedEmails={getAllowedOwnerEmails()} />
           </Suspense>
         </CardContent>
       </Card>
