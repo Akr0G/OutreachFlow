@@ -25,13 +25,13 @@ export function countWords(value: string) {
 }
 
 export function bodyExcludingSignature(body: string, signature?: string | null) {
-  if (!signature) return body.trim();
   const trimmedBody = body.trim();
+  if (!signature) return trimmedBody.replace(/\n\nBest,[\s\S]*$/i, "").trim();
   const trimmedSignature = signature.trim();
   if (trimmedSignature && trimmedBody.endsWith(trimmedSignature)) {
     return trimmedBody.slice(0, -trimmedSignature.length).trim();
   }
-  return trimmedBody;
+  return trimmedBody.replace(/\n\nBest,[\s\S]*$/i, "").trim();
 }
 
 export function validateInitialEmailDraft(

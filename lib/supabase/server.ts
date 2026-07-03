@@ -4,6 +4,8 @@ import { createServerClient } from "@supabase/ssr";
 import type { CookieOptions } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
 
+let adminClient: any | null = null;
+
 export function isSupabaseConfigured() {
   return Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
 }
@@ -40,7 +42,7 @@ export function createSupabaseAdminClient() {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
     throw new Error("Supabase admin credentials are not configured.");
   }
-  return createClient<any>(
+  adminClient ??= createClient<any>(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
     process.env.SUPABASE_SERVICE_ROLE_KEY,
     {
@@ -50,6 +52,7 @@ export function createSupabaseAdminClient() {
       }
     }
   );
+  return adminClient;
 }
 
 export async function createSupabaseWorkspaceClient(): Promise<any> {

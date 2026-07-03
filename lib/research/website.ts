@@ -1,8 +1,12 @@
-import type { ObservedWebsiteIssue } from "@/lib/types";
+import { formatWebsiteQualityTier, scoreWebsiteQuality } from "@/lib/research/website-score";
+import type { ObservedWebsiteIssue, WebsiteQualityTier } from "@/lib/types";
 
 export type WebsiteResearch = {
   email: string | null;
   issues: ObservedWebsiteIssue[];
+  qualityTier: WebsiteQualityTier;
+  qualityLabel: string;
+  qualitySummary: string;
   issueDetails: string | null;
   notes: string | null;
 };
@@ -14,6 +18,9 @@ export async function researchWebsite(url: string | null): Promise<WebsiteResear
     return {
       email: null,
       issues: ["No website"],
+      qualityTier: 0,
+      qualityLabel: "No website",
+      qualitySummary: "No business website was found in the available lead data.",
       issueDetails: "No website was provided by the business listing.",
       notes: "Research source: business listing did not include a website."
     };
@@ -67,9 +74,15 @@ function analyzePages(url: string, pages: FetchedPage[]): WebsiteResearch {
   }
 
   const email = extractEmail(html);
+  const quality = scoreWebsiteQuality({
+    websiteUrl: url,
+    issues: Array.from(issues),
+    issueDetails: details.join(" ")
+  });
   const title = html.match(/<title[^>]*>(.*?)<\/title>/i)?.[1]?.replace(/\s+/g, " ").trim();
   const notes = [
     "Research source: public website pages checked from the business listing.",
+    `Website quality: ${formatWebsiteQualityTier(quality)}.`,
     title ? `Page title: ${decodeEntities(title)}.` : null,
     email ? "A public email address was detected and should be verified before outreach." : "No public email address was detected."
   ]
@@ -79,6 +92,9 @@ function analyzePages(url: string, pages: FetchedPage[]): WebsiteResearch {
   return {
     email,
     issues: Array.from(issues).slice(0, 3),
+    qualityTier: quality.tier,
+    qualityLabel: quality.label,
+    qualitySummary: quality.summary,
     issueDetails: details.length ? details.join(" ") : null,
     notes
   };
@@ -164,10 +180,19 @@ function normalizeUrl(value: string) {
 }
 
 function emptyResearch(issueDetails: string): WebsiteResearch {
+  const quality = scoreWebsiteQuality({
+    websiteUrl: "unreachable",
+    issues: ["Other observed issue"],
+    issueDetails
+  });
+
   return {
     email: null,
     issues: ["Other observed issue"],
+    qualityTier: quality.tier,
+    qualityLabel: quality.label,
+    qualitySummary: quality.summary,
     issueDetails,
-    notes: "Research source: public website check attempted; verify details before outreach."
+    notes: `Research source: public website check attempted; verify details before outreach. Website quality: ${formatWebsiteQualityTier(quality)}.`
   };
 }

@@ -8,7 +8,7 @@ import { rateLimit } from "@/lib/rate-limit";
 import { generateDraftRequestSchema } from "@/lib/schemas";
 import { getLeadBundle, getRawSettings, listTemplates } from "@/lib/supabase/repository";
 import { createSupabaseWorkspaceClient, isSupabaseConfigured } from "@/lib/supabase/server";
-import type { EmailDraft, GeneratedEmailDraft } from "@/lib/types";
+import type { EmailDraft, GeneratedBy, GeneratedEmailDraft } from "@/lib/types";
 
 export async function POST(request: NextRequest) {
   const owner = await getOwnerContext();
@@ -35,6 +35,7 @@ export async function POST(request: NextRequest) {
 
   const variation = pickDraftVariation(`${lead.id}:${Date.now()}:${parsed.data.draft_type}`);
   let generated: GeneratedEmailDraft;
+  let generatedBy: GeneratedBy = "ai";
   try {
     const apiKey = resolveOpenAiApiKey(settings);
     generated = await generateEmailDraftWithOpenAI(apiKey, {
@@ -45,10 +46,8 @@ export async function POST(request: NextRequest) {
       variation
     });
   } catch {
-    if (isSupabaseConfigured()) {
-      return NextResponse.json({ error: "OpenAI generation failed." }, { status: 502 });
-    }
     generated = buildLocalDraft(lead, parsed.data.draft_type, settings, variation);
+    generatedBy = "manual";
   }
 
   const signature = templates.find((template) => template.template_type === "signature")?.content;
@@ -70,7 +69,7 @@ export async function POST(request: NextRequest) {
         state: "awaiting_review",
         gmail_draft_id: null,
         gmail_message_id: null,
-        generated_by: "ai",
+        generated_by: generatedBy,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         sent_at: null
@@ -89,7 +88,7 @@ export async function POST(request: NextRequest) {
       subject: generated.subject,
       body: generated.body,
       state: "awaiting_review",
-      generated_by: "ai",
+      generated_by: generatedBy,
       created_at: now,
       updated_at: now
     })
