@@ -7,6 +7,8 @@ export type OwnerContext = {
   demo: boolean;
 };
 
+let localWorkspaceOwnerPromise: Promise<OwnerContext> | null = null;
+
 export const getOwnerContext = cache(async (): Promise<OwnerContext> => {
   if (!isSupabaseConfigured()) {
     return {
@@ -38,6 +40,11 @@ async function resolveLocalWorkspaceOwner(): Promise<OwnerContext> {
     throw new Error("Supabase service role key is required when login is disabled.");
   }
 
+  localWorkspaceOwnerPromise ??= loadLocalWorkspaceOwner();
+  return localWorkspaceOwnerPromise;
+}
+
+async function loadLocalWorkspaceOwner(): Promise<OwnerContext> {
   const admin = createSupabaseAdminClient();
   const { data, error } = await admin.auth.admin.listUsers({ page: 1, perPage: 1 });
   if (error) throw error;

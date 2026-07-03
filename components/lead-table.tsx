@@ -3,12 +3,13 @@
 import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { Download, ExternalLink, Search } from "lucide-react";
+import { Download, ExternalLink, Search, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { StatusBadge } from "@/components/status-badge";
 import { leadStatuses } from "@/lib/constants";
 import { canCreateFollowUpDraft } from "@/lib/business-rules";
+import { scoreLeadWebsite } from "@/lib/research/website-score";
 import type { EmailDraft, Lead, LeadStatus } from "@/lib/types";
 import { domainFromUrl, formatDate, formatDateTime } from "@/lib/utils/format";
 
@@ -16,6 +17,7 @@ type SortMode = "newest" | "oldest" | "date_contacted" | "last_activity";
 type FollowFilter = "all" | "eligible" | "blocked";
 
 export function LeadTable({ leads, drafts }: { leads: Lead[]; drafts: EmailDraft[] }) {
+  const [rows, setRows] = useState(leads);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<LeadStatus | "all">("all");
   const [industry, setIndustry] = useState("all");
@@ -27,17 +29,17 @@ export function LeadTable({ leads, drafts }: { leads: Lead[]; drafts: EmailDraft
   const [selected, setSelected] = useState<string[]>([]);
 
   const industries = useMemo(
-    () => Array.from(new Set(leads.map((lead) => lead.industry).filter(Boolean))).sort() as string[],
-    [leads]
+    () => Array.from(new Set(rows.map((lead) => lead.industry).filter(Boolean))).sort() as string[],
+    [rows]
   );
   const locations = useMemo(
-    () => Array.from(new Set(leads.map((lead) => lead.location).filter(Boolean))).sort() as string[],
-    [leads]
+    () => Array.from(new Set(rows.map((lead) => lead.location).filter(Boolean))).sort() as string[],
+    [rows]
   );
 
   const filtered = useMemo(() => {
     const normalized = query.toLowerCase().trim();
-    return leads
+    return rows
       .filter((lead) => {
         const haystack = [
           lead.business_name,
@@ -75,7 +77,7 @@ export function LeadTable({ leads, drafts }: { leads: Lead[]; drafts: EmailDraft
         }
         return Date.parse(right.created_at) - Date.parse(left.created_at);
       });
-  }, [dateContacted, drafts, followFilter, industry, leads, location, query, sortMode, status]);
+  }, [dateContacted, drafts, followFilter, industry, rows, location, query, sortMode, status]);
 
   const pageSize = 8;
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
@@ -88,11 +90,11 @@ export function LeadTable({ leads, drafts }: { leads: Lead[]; drafts: EmailDraft
   }
 
   function exportSelected() {
-    const rows = leads.filter((lead) => selected.includes(lead.id));
+    const exportRows = rows.filter((lead) => selected.includes(lead.id));
     const headers = ["business_name", "contact_name", "email", "industry", "location", "website_url", "status"];
     const csv = [
       headers.join(","),
-      ...rows.map((lead) =>
+      ...exportRows.map((lead) =>
         headers
           .map((header) => {
             const value = String(lead[header as keyof Lead] ?? "");
@@ -108,6 +110,35 @@ export function LeadTable({ leads, drafts }: { leads: Lead[]; drafts: EmailDraft
     anchor.download = "outreachflow-selected-leads.csv";
     anchor.click();
     URL.revokeObjectURL(url);
+  }
+
+  async function deleteLead(lead: Lead) {
+    if (!window.confirm(`Delete ${lead.business_name}? This also removes its drafts, replies, and activity history.`)) return;
+    const response = await fetch(`/api/leads/${lead.id}`, { method: "DELETE" });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      window.alert(body.error ?? "Lead could not be deleted.");
+      return;
+    }
+    setRows((current) => current.filter((item) => item.id !== lead.id));
+    setSelected((current) => current.filter((id) => id !== lead.id));
+  }
+
+  async function deleteSelected() {
+    const selectedRows = rows.filter((lead) => selected.includes(lead.id));
+    if (selectedRows.length === 0) return;
+    if (!window.confirm(`Delete ${selectedRows.length} selected lead${selectedRows.length === 1 ? "" : "s"}? This cannot be undone.`)) return;
+
+    const deletedIds: string[] = [];
+    for (const lead of selectedRows) {
+      const response = await fetch(`/api/leads/${lead.id}`, { method: "DELETE" });
+      if (response.ok) deletedIds.push(lead.id);
+    }
+    setRows((current) => current.filter((lead) => !deletedIds.includes(lead.id)));
+    setSelected((current) => current.filter((id) => !deletedIds.includes(id)));
+    if (deletedIds.length !== selectedRows.length) {
+      window.alert("Some leads could not be deleted. Refresh and try again.");
+    }
   }
 
   return (
@@ -175,15 +206,21 @@ export function LeadTable({ leads, drafts }: { leads: Lead[]; drafts: EmailDraft
           </Select>
           <p className="text-sm text-slate-500">{filtered.length} leads</p>
         </div>
-        <Button variant="secondary" size="sm" onClick={exportSelected} disabled={selected.length === 0}>
-          <Download className="h-4 w-4" aria-hidden="true" />
-          Export selected
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" size="sm" onClick={exportSelected} disabled={selected.length === 0}>
+            <Download className="h-4 w-4" aria-hidden="true" />
+            Export selected
+          </Button>
+          <Button variant="danger" size="sm" onClick={deleteSelected} disabled={selected.length === 0}>
+            <Trash2 className="h-4 w-4" aria-hidden="true" />
+            Delete selected
+          </Button>
+        </div>
       </div>
 
       <div className="overflow-hidden rounded-lg border border-border bg-white">
         <div className="overflow-x-auto">
-          <table className="min-w-[1100px] w-full text-left text-sm">
+          <table className="min-w-[1180px] w-full text-left text-sm">
             <thead className="bg-slate-50 text-xs uppercase text-slate-500">
               <tr>
                 <th className="w-10 px-4 py-3">
@@ -195,6 +232,7 @@ export function LeadTable({ leads, drafts }: { leads: Lead[]; drafts: EmailDraft
                 <th className="px-4 py-3">Industry</th>
                 <th className="px-4 py-3">Location</th>
                 <th className="px-4 py-3">Website</th>
+                <th className="px-4 py-3">Tier</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3">Date contacted</th>
                 <th className="px-4 py-3">Follow-ups</th>
@@ -203,7 +241,10 @@ export function LeadTable({ leads, drafts }: { leads: Lead[]; drafts: EmailDraft
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {visible.map((lead) => (
+              {visible.map((lead) => {
+                const websiteScore = scoreLeadWebsite(lead);
+
+                return (
                 <tr key={lead.id} className="hover:bg-slate-50">
                   <td className="px-4 py-3">
                     <input
@@ -234,6 +275,10 @@ export function LeadTable({ leads, drafts }: { leads: Lead[]; drafts: EmailDraft
                       "No website"
                     )}
                   </td>
+                  <td className="px-4 py-3 text-slate-700">
+                    <span className="whitespace-nowrap font-medium text-slate-900">Tier {websiteScore.tier}</span>
+                    <span className="block whitespace-nowrap text-xs text-slate-500">{websiteScore.label}</span>
+                  </td>
                   <td className="px-4 py-3">
                     <StatusBadge status={lead.status} />
                   </td>
@@ -241,15 +286,25 @@ export function LeadTable({ leads, drafts }: { leads: Lead[]; drafts: EmailDraft
                   <td className="px-4 py-3 text-slate-700">{lead.follow_up_count}</td>
                   <td className="px-4 py-3 text-slate-700">{formatDateTime(lead.last_activity_at)}</td>
                   <td className="px-4 py-3">
-                    <Link href={`/leads/${lead.id}`} className="font-medium text-teal-700 hover:text-teal-900">
-                      View
-                    </Link>
+                    <div className="flex items-center gap-3">
+                      <Link href={`/leads/${lead.id}`} className="font-medium text-teal-700 hover:text-teal-900">
+                        View
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => deleteLead(lead)}
+                        className="font-medium text-red-700 hover:text-red-900"
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
               {visible.length === 0 && (
                 <tr>
-                  <td colSpan={12} className="px-4 py-10 text-center text-sm text-slate-500">
+                  <td colSpan={13} className="px-4 py-10 text-center text-sm text-slate-500">
                     No leads match the current filters.
                   </td>
                 </tr>

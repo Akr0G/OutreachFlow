@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
   Check,
@@ -27,7 +28,7 @@ import {
   canSendDraft,
   statusForReplyCategory
 } from "@/lib/business-rules";
-import { buildLocalDraft, pickDraftVariation } from "@/lib/email/draft-variations";
+import { scoreLeadWebsite } from "@/lib/research/website-score";
 import type { Activity, AppSettings, EmailDraft, Lead, LeadStatus, Reply, ReplyCategory } from "@/lib/types";
 import { domainFromUrl, formatDateTime } from "@/lib/utils/format";
 import { cn } from "@/lib/utils/cn";
@@ -45,12 +46,15 @@ export function LeadDetailClient({
   activities: Activity[];
   settings: AppSettings;
 }) {
+  const router = useRouter();
+  const autoDraftAttempted = useRef(false);
   const [leadState, setLeadState] = useState(lead);
   const [draftState, setDraftState] = useState(drafts);
   const [replyState, setReplyState] = useState(replies);
   const [activityState, setActivityState] = useState(activities);
   const [sendCandidate, setSendCandidate] = useState<EmailDraft | null>(null);
   const [message, setMessage] = useState("");
+  const [pendingAction, setPendingAction] = useState<string | null>(null);
 
   const initialEligibility = canCreateInitialDraft(leadState);
   const followUpEligibility = canCreateFollowUpDraft(
@@ -88,7 +92,7 @@ export function LeadDetailClient({
     setMessage("Lead changes saved in this workspace session.");
   }
 
-  function generateDraft(type: EmailDraft["draft_type"]) {
+  async function generateDraft(type: EmailDraft["draft_type"], options: { automatic?: boolean } = {}) {
     const eligibility =
       type === "initial"
         ? canCreateInitialDraft(leadState)
@@ -98,30 +102,26 @@ export function LeadDetailClient({
       return;
     }
 
-    const generated = buildLocalDraft(
-      leadState,
-      type,
-      settings,
-      pickDraftVariation(`${leadState.id}:${Date.now()}:${type}`)
-    );
-    const draft: EmailDraft = {
-      id: crypto.randomUUID(),
-      lead_id: leadState.id,
-      draft_type: type,
-      subject: generated.subject,
-      body: generated.body,
-      state: "awaiting_review",
-      gmail_draft_id: null,
-      gmail_message_id: null,
-      generated_by: "ai",
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      sent_at: null
-    };
-    setDraftState((current) => [draft, ...current]);
-    if (type === "initial") updateLeadField("status", "Draft Created");
-    appendActivity(type === "initial" ? "Draft created" : "Follow-up created", type === "initial" ? "Initial draft created" : "Follow-up draft created", { subject: draft.subject });
-    setMessage(`${type === "initial" ? "Initial" : "Follow-up"} draft created.`);
+    setPendingAction(`generate:${type}`);
+    try {
+      const response = await fetch("/api/ai/generate-draft", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ lead_id: leadState.id, draft_type: type })
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error ?? "Draft could not be created.");
+
+      const draft = body.draft as EmailDraft;
+      setDraftState((current) => [draft, ...current.filter((item) => item.id !== draft.id)]);
+      if (type === "initial") updateLeadField("status", "Draft Created");
+      appendActivity(type === "initial" ? "Draft created" : "Follow-up created", type === "initial" ? "Initial draft created" : "Follow-up draft created", { subject: draft.subject });
+      setMessage(options.automatic ? "Initial draft automatically saved for review." : `${type === "initial" ? "Initial" : "Follow-up"} draft saved for review.`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Draft could not be created.");
+    } finally {
+      setPendingAction(null);
+    }
   }
 
   function updateDraft(id: string, updates: Partial<EmailDraft>) {
@@ -130,14 +130,30 @@ export function LeadDetailClient({
     );
   }
 
-  function approveDraft(draft: EmailDraft) {
-    updateDraft(draft.id, { state: "approved" });
-    appendActivity("Draft approved", "Draft approved", { subject: draft.subject });
+  async function approveDraft(draft: EmailDraft) {
+    setPendingAction(`approve:${draft.id}`);
+    try {
+      const saved = await persistDraft(draft, { state: "approved" });
+      appendActivity("Draft approved", "Draft approved", { subject: saved.subject });
+      setMessage("Draft approved and saved.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Draft could not be approved.");
+    } finally {
+      setPendingAction(null);
+    }
   }
 
-  function deleteDraft(draft: EmailDraft) {
-    updateDraft(draft.id, { state: "deleted" });
-    appendActivity("Draft deleted", "Draft deleted", { subject: draft.subject });
+  async function deleteDraft(draft: EmailDraft) {
+    setPendingAction(`delete:${draft.id}`);
+    try {
+      const saved = await persistDraft(draft, { state: "deleted" });
+      appendActivity("Draft deleted", "Draft deleted", { subject: saved.subject });
+      setMessage("Draft deleted.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Draft could not be deleted.");
+    } finally {
+      setPendingAction(null);
+    }
   }
 
   function requestSend(draft: EmailDraft) {
@@ -149,28 +165,37 @@ export function LeadDetailClient({
     setSendCandidate(draft);
   }
 
-  function confirmSend() {
+  async function confirmSend() {
     if (!sendCandidate) return;
-    const sentAt = new Date().toISOString();
-    updateDraft(sendCandidate.id, {
-      state: "sent",
-      sent_at: sentAt,
-      gmail_message_id: sendCandidate.gmail_message_id ?? `demo-${sendCandidate.id}`,
-      gmail_draft_id: sendCandidate.gmail_draft_id ?? `demo-draft-${sendCandidate.id}`
-    });
-    setLeadState((current) => ({
-      ...current,
-      status: "Sent",
-      date_contacted: current.date_contacted ?? sentAt.slice(0, 10),
-      initial_sent_at: sendCandidate.draft_type === "initial" ? sentAt : current.initial_sent_at,
-      follow_up_count: sendCandidate.draft_type === "follow_up" ? 1 : current.follow_up_count,
-      last_activity_at: sentAt
-    }));
-    appendActivity("Email sent", `${sendCandidate.draft_type === "initial" ? "Initial" : "Follow-up"} email sent`, {
-      subject: sendCandidate.subject
-    });
-    setSendCandidate(null);
-    setMessage("Email marked sent in this workspace session.");
+    const latestDraft = draftState.find((draft) => draft.id === sendCandidate.id) ?? sendCandidate;
+    setPendingAction(`send:${latestDraft.id}`);
+    try {
+      const response = await fetch("/api/gmail/send", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          draft_id: latestDraft.id,
+          final_confirmation: true,
+          subject: latestDraft.subject,
+          body: latestDraft.body
+        })
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error ?? "Email could not be sent.");
+
+      if (body.draft) replaceDraft(body.draft as EmailDraft);
+      if (body.lead) setLeadState(body.lead as Lead);
+      appendActivity("Email sent", `${latestDraft.draft_type === "initial" ? "Initial" : "Follow-up"} email sent through Gmail`, {
+        subject: latestDraft.subject,
+        gmail_message_id: body.messageId
+      });
+      setSendCandidate(null);
+      setMessage("Email sent through Gmail.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Email could not be sent.");
+    } finally {
+      setPendingAction(null);
+    }
   }
 
   function markStatus(status: LeadStatus) {
@@ -181,6 +206,21 @@ export function LeadDetailClient({
       last_activity_at: new Date().toISOString()
     }));
     appendActivity(status === "Do Not Contact" ? "Lead marked Do Not Contact" : "Status changed", `Status changed to ${status}`, {});
+  }
+
+  async function deleteLead() {
+    if (!window.confirm(`Delete ${leadState.business_name}? This also removes its drafts, replies, and activity history.`)) return;
+    setPendingAction("delete-lead");
+    try {
+      const response = await fetch(`/api/leads/${leadState.id}`, { method: "DELETE" });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error ?? "Lead could not be deleted.");
+      router.push("/leads");
+      router.refresh();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Lead could not be deleted.");
+      setPendingAction(null);
+    }
   }
 
   function recordManualReply() {
@@ -236,7 +276,40 @@ export function LeadDetailClient({
     ]);
   }
 
+  function replaceDraft(updatedDraft: EmailDraft) {
+    setDraftState((current) => current.map((draft) => (draft.id === updatedDraft.id ? updatedDraft : draft)));
+  }
+
+  async function persistDraft(draft: EmailDraft, updates: Partial<EmailDraft>) {
+    const response = await fetch(`/api/drafts/${draft.id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        subject: updates.subject ?? draft.subject,
+        body: updates.body ?? draft.body,
+        state: updates.state ?? draft.state,
+        gmail_draft_id: updates.gmail_draft_id ?? draft.gmail_draft_id,
+        gmail_message_id: updates.gmail_message_id ?? draft.gmail_message_id
+      })
+    });
+    const body = await response.json();
+    if (!response.ok) throw new Error(body.error ?? "Draft could not be saved.");
+    const saved = { ...draft, ...body.draft } as EmailDraft;
+    replaceDraft(saved);
+    return saved;
+  }
+
   const activeDrafts = useMemo(() => draftState.filter((draft) => draft.state !== "deleted"), [draftState]);
+  const hasInitialDraft = activeDrafts.some((draft) => draft.draft_type === "initial");
+  const websiteScore = scoreLeadWebsite(leadState);
+
+  useEffect(() => {
+    if (autoDraftAttempted.current || hasInitialDraft || !initialEligibility.allowed || pendingAction) return;
+    autoDraftAttempted.current = true;
+    void generateDraft("initial", { automatic: true });
+    // Auto-draft should only evaluate the lead's opening state once.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasInitialDraft, initialEligibility.allowed, pendingAction]);
 
   return (
     <div className="space-y-6">
@@ -257,21 +330,28 @@ export function LeadDetailClient({
           </div>
           <div className="flex flex-wrap gap-2">
             <StatusBadge status={leadState.status} />
+            <Badge className={websiteTierClassName(websiteScore.tier)}>
+              Tier {websiteScore.tier}: {websiteScore.label}
+            </Badge>
             <EligibilityBadge blocked={outreachBlocked} initial={initialEligibility} followUp={followUpEligibility} />
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="secondary" onClick={() => generateDraft("initial")} disabled={!initialEligibility.allowed}>
+          <Button variant="secondary" onClick={() => generateDraft("initial")} disabled={!initialEligibility.allowed || Boolean(pendingAction)}>
             <MailPlus className="h-4 w-4" aria-hidden="true" />
             Initial Draft
           </Button>
-          <Button variant="secondary" onClick={() => generateDraft("follow_up")} disabled={!followUpEligibility.allowed}>
+          <Button variant="secondary" onClick={() => generateDraft("follow_up")} disabled={!followUpEligibility.allowed || Boolean(pendingAction)}>
             <MessageSquare className="h-4 w-4" aria-hidden="true" />
             Follow-Up
           </Button>
-          <Button variant="danger" onClick={() => markStatus("Do Not Contact")}>
+          <Button variant="danger" onClick={() => markStatus("Do Not Contact")} disabled={Boolean(pendingAction)}>
             <ShieldOff className="h-4 w-4" aria-hidden="true" />
             Do Not Contact
+          </Button>
+          <Button variant="danger" onClick={deleteLead} disabled={Boolean(pendingAction)}>
+            <Trash2 className="h-4 w-4" aria-hidden="true" />
+            Delete Lead
           </Button>
         </div>
       </div>
@@ -329,6 +409,10 @@ export function LeadDetailClient({
             <CardTitle>Observations</CardTitle>
           </CardHeader>
           <CardContent className="space-y-5">
+            <div className="rounded-md border border-border bg-slate-50 p-3 text-sm text-slate-700">
+              <p className="font-medium text-slate-950">Website tier: {websiteScore.tier} - {websiteScore.label}</p>
+              <p className="mt-1">{websiteScore.summary}</p>
+            </div>
             <div className="grid gap-2 sm:grid-cols-2">
               {observedWebsiteIssues.map((issue) => (
                 <label key={issue} className="flex items-center gap-2 rounded-md border border-border bg-white px-3 py-2 text-sm">
@@ -375,15 +459,15 @@ export function LeadDetailClient({
                       <p className="text-xs text-slate-500">State: {draft.state.replace("_", " ")}</p>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      <Button variant="secondary" size="sm" onClick={() => approveDraft(draft)} disabled={draft.state === "approved"}>
+                      <Button variant="secondary" size="sm" onClick={() => approveDraft(draft)} disabled={draft.state === "approved" || Boolean(pendingAction)}>
                         <Check className="h-4 w-4" aria-hidden="true" />
                         Approve
                       </Button>
-                      <Button variant="secondary" size="sm" onClick={() => requestSend(draft)} disabled={draft.state !== "approved"}>
+                      <Button variant="secondary" size="sm" onClick={() => requestSend(draft)} disabled={draft.state !== "approved" || Boolean(pendingAction)}>
                         <Send className="h-4 w-4" aria-hidden="true" />
                         Send
                       </Button>
-                      <Button variant="secondary" size="sm" onClick={() => deleteDraft(draft)}>
+                      <Button variant="secondary" size="sm" onClick={() => deleteDraft(draft)} disabled={Boolean(pendingAction)}>
                         <Trash2 className="h-4 w-4" aria-hidden="true" />
                         Delete
                       </Button>
@@ -491,7 +575,9 @@ export function LeadDetailClient({
                 <Button variant="secondary" onClick={() => setSendCandidate(null)}>
                   Cancel
                 </Button>
-                <Button onClick={confirmSend}>Send with Gmail</Button>
+                <Button onClick={confirmSend} disabled={pendingAction === `send:${sendCandidate.id}`}>
+                  Send with Gmail
+                </Button>
               </div>
             </div>
           </div>
@@ -499,6 +585,13 @@ export function LeadDetailClient({
       )}
     </div>
   );
+}
+
+function websiteTierClassName(tier: number) {
+  if (tier === 3) return "border-emerald-200 bg-emerald-50 text-emerald-800";
+  if (tier === 2) return "border-sky-200 bg-sky-50 text-sky-800";
+  if (tier === 1) return "border-amber-200 bg-amber-50 text-amber-800";
+  return "border-rose-200 bg-rose-50 text-rose-800";
 }
 
 function EligibilityBadge({
