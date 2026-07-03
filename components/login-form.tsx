@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { useSearchParams } from "next/navigation";
 import { LogIn } from "lucide-react";
@@ -9,15 +9,27 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
-export function LoginForm() {
+export function LoginForm({ allowedEmails }: { allowedEmails: string[] }) {
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
   const [pending, setPending] = useState(false);
   const searchParams = useSearchParams();
   const supabase = createSupabaseBrowserClient();
 
+  useEffect(() => {
+    const callbackError = searchParams.get("error");
+    const errorMessage = callbackErrorMessage(callbackError);
+    if (errorMessage) setMessage(errorMessage);
+  }, [searchParams]);
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!allowedEmails.includes(normalizedEmail)) {
+      setMessage("Only the Digital Web Elevate Gmail account can access this workspace.");
+      return;
+    }
+
     if (!supabase) {
       setMessage("Demo mode is active because Supabase env vars are not configured.");
       return;
@@ -25,7 +37,7 @@ export function LoginForm() {
     setPending(true);
     const redirectBase = process.env.NEXT_PUBLIC_APP_URL ?? window.location.origin;
     const { error } = await supabase.auth.signInWithOtp({
-      email,
+      email: normalizedEmail,
       options: {
         emailRedirectTo: `${redirectBase}/auth/callback?next=${encodeURIComponent(searchParams.get("next") ?? "/")}`
       }
@@ -51,4 +63,11 @@ export function LoginForm() {
       </Button>
     </form>
   );
+}
+
+function callbackErrorMessage(error: string | null) {
+  if (error === "not-allowed") return "Only the Digital Web Elevate Gmail account can access this workspace.";
+  if (error === "no-user") return "The sign-in link did not return a user. Try again.";
+  if (error === "auth-callback") return "The sign-in link could not be verified. Try again.";
+  return null;
 }
