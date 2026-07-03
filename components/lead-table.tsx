@@ -245,7 +245,7 @@ export function LeadTable({ leads, drafts }: { leads: Lead[]; drafts: EmailDraft
                 const websiteScore = scoreLeadWebsite(lead);
 
                 return (
-                <tr key={lead.id} className="hover:bg-slate-50">
+                <tr key={lead.id} className="transition-colors duration-150 ease-out hover:bg-slate-50">
                   <td className="px-4 py-3">
                     <input
                       aria-label={`Select ${lead.business_name}`}

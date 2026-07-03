@@ -45,3 +45,36 @@ a {
 ::selection {
   background: hsl(var(--accent) / 0.2);
 }
+
+@media (prefers-reduced-motion: no-preference) {
+  .page-transition {
+    animation: page-enter 180ms ease-out both;
+  }
+
+  .skeleton-pulse {
+    animation: skeleton-pulse 1.1s ease-in-out infinite;
+  }
+
+  @keyframes page-enter {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes skeleton-pulse {
+    0%,
+    100% {
+      opacity: 0.55;
+    }
+
+    50% {
+      opacity: 1;
+    }
+  }
+}

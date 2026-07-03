@@ -78,6 +78,10 @@ export const replyClassificationSchema = z.object({
   explanation: z.string().trim().min(1).max(300)
 });
 
+export const replyOverrideSchema = z.object({
+  classification: z.enum(replyCategories)
+});
+
 export const templateSchema = z.object({
   template_type: z.enum(templateTypes),
   content: z.string().trim().min(1).max(8000)

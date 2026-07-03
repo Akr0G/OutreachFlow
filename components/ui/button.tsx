@@ -16,7 +16,8 @@ export function buttonClasses({
   className?: string;
 }) {
   return cn(
-    "inline-flex items-center justify-center gap-2 rounded-md text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-50",
+    "inline-flex items-center justify-center gap-2 rounded-md text-sm font-medium transition duration-150 ease-out disabled:pointer-events-none disabled:opacity-50",
+    "hover:-translate-y-0.5 active:translate-y-0",
     "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-500",
     variant === "primary" && "bg-accent text-accent-foreground hover:bg-teal-700",
     variant === "secondary" && "border border-border bg-white text-slate-800 hover:bg-slate-50",

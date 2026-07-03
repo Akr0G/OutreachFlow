@@ -244,7 +244,11 @@ export function LeadDetailClient({
     appendActivity("Follow-up canceled", "Follow-up canceled because a reply was received", {});
   }
 
-  function overrideReply(id: string, category: ReplyCategory) {
+  async function overrideReply(id: string, category: ReplyCategory) {
+    const previousReplies = replyState;
+    const previousLead = leadState;
+    const updatedAt = new Date().toISOString();
+
     setReplyState((current) =>
       current.map((reply) =>
         reply.id === id
@@ -258,8 +262,35 @@ export function LeadDetailClient({
           : reply
       )
     );
-    setLeadState((current) => ({ ...current, status: statusForReplyCategory(category) }));
-    appendActivity("Reply classified", `Reply classified as ${category}`, { manual: true });
+    setLeadState((current) => ({
+      ...current,
+      status: statusForReplyCategory(category),
+      last_activity_at: updatedAt,
+      updated_at: updatedAt
+    }));
+
+    try {
+      const response = await fetch(`/api/replies/${id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ classification: category })
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error ?? "Reply classification could not be saved.");
+
+      if (body.reply) {
+        setReplyState((current) => current.map((reply) => (reply.id === id ? { ...reply, ...body.reply } : reply)));
+      }
+      if (body.lead) {
+        setLeadState((current) => ({ ...current, ...body.lead }));
+      }
+      appendActivity("Reply classified", `Reply classified as ${category}`, { manual: true });
+      setMessage("Reply classification saved.");
+    } catch (error) {
+      setReplyState(previousReplies);
+      setLeadState(previousLead);
+      setMessage(error instanceof Error ? error.message : "Reply classification could not be saved.");
+    }
   }
 
   function appendActivity(activity_type: Activity["activity_type"], description: string, metadata: Activity["metadata"]) {
@@ -512,7 +543,7 @@ export function LeadDetailClient({
                   <p className="text-xs text-slate-500">{reply.explanation}</p>
                   <select
                     value={reply.classification}
-                    onChange={(event) => overrideReply(reply.id, event.target.value as ReplyCategory)}
+                    onChange={(event) => void overrideReply(reply.id, event.target.value as ReplyCategory)}
                     className="h-9 rounded-md border border-border bg-white px-2 text-sm"
                   >
                     {replyCategories.map((category) => (
