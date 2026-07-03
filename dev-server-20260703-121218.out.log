@@ -77,3 +77,11 @@
  GET /leads/23ff82e0-850a-4b66-b9af-190b6f69cda5 200 in 112ms
  ✓ Compiled in 477ms (806 modules)
  GET /leads/23ff82e0-850a-4b66-b9af-190b6f69cda5 200 in 207ms
+ ✓ Compiled in 110ms (281 modules)
+ GET /leads/23ff82e0-850a-4b66-b9af-190b6f69cda5 200 in 54ms
+ ✓ Compiled /api/drafts/[id] in 460ms (555 modules)
+ PATCH /api/drafts/7f688b35-d0cd-47d3-8b09-caa746f71ee8 200 in 1269ms
+ ○ Compiling /api/gmail/send ...
+ ✓ Compiled /api/gmail/send in 2.9s (1809 modules)
+ POST /api/gmail/send 200 in 7230ms
+ GET / 200 in 559ms
