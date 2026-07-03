@@ -1,0 +1,44 @@
+
+> outreachflow@0.1.0 dev
+> next dev
+
+   ▲ Next.js 15.5.20
+   - Local:        http://localhost:3000
+   - Network:      http://26.134.119.143:3000
+   - Environments: .env.local
+   - Experiments (use with caution):
+     · serverActions
+
+ ✓ Starting...
+ ✓ Ready in 1822ms
+ ○ Compiling / ...
+ ✓ Compiled / in 2.6s (729 modules)
+ GET / 200 in 4590ms
+ ○ Compiling /api/gmail/sync ...
+ ✓ Compiled /api/gmail/sync in 2s (1536 modules)
+ GET /api/gmail/sync 200 in 5702ms
+ ✓ Compiled / in 389ms (1618 modules)
+ GET / 200 in 1468ms
+ POST /api/gmail/sync 200 in 3491ms
+ GET / 200 in 378ms
+ ○ Compiling /leads/[id] ...
+ ✓ Compiled /leads/[id] in 1318ms (1921 modules)
+ GET /leads/3fed1e98-e09c-494f-ae7e-6775bf0f936a 200 in 2599ms
+ GET / 200 in 941ms
+ GET /leads/3fed1e98-e09c-494f-ae7e-6775bf0f936a 200 in 456ms
+ ○ Compiling /leads ...
+ ✓ Compiled /leads in 747ms (1934 modules)
+ GET /leads 200 in 1226ms
+ GET /leads/3fed1e98-e09c-494f-ae7e-6775bf0f936a 200 in 423ms
+ GET /leads/3fed1e98-e09c-494f-ae7e-6775bf0f936a 200 in 504ms
+ GET / 200 in 590ms
+ ○ Compiling /settings ...
+ ✓ Compiled /settings in 824ms (818 modules)
+ GET /settings 200 in 1481ms
+ GET / 200 in 628ms
+ ✓ Compiled in 3.1s (832 modules)
+ GET / 200 in 2697ms
+ GET / 200 in 418ms
+ ✓ Compiled in 1383ms (832 modules)
+ GET / 200 in 1097ms
+[?25h

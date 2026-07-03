@@ -1,0 +1,15 @@
+
+> outreachflow@0.1.0 dev
+> next dev
+
+   ▲ Next.js 15.5.20
+   - Local:        http://localhost:3000
+   - Network:      http://26.134.119.143:3000
+   - Environments: .env.local
+   - Experiments (use with caution):
+     · serverActions
+
+ ✓ Starting...
+ ✓ Ready in 1863ms
+ ○ Compiling / ...
+ ✓ Compiled / in 3.7s (751 modules)

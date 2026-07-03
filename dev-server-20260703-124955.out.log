@@ -1,0 +1,72 @@
+
+> outreachflow@0.1.0 dev
+> next dev
+
+   ▲ Next.js 15.5.20
+   - Local:        http://localhost:3000
+   - Network:      http://26.134.119.143:3000
+   - Environments: .env.local
+   - Experiments (use with caution):
+     · serverActions
+
+ ✓ Starting...
+ ✓ Ready in 1937ms
+ ○ Compiling / ...
+ ✓ Compiled / in 2.4s (721 modules)
+ GET / 200 in 4682ms
+ ○ Compiling /leads ...
+ ✓ Compiled /leads in 1352ms (754 modules)
+ GET /leads 200 in 2064ms
+ ○ Compiling /leads/new ...
+ ✓ Compiled /leads/new in 1487ms (961 modules)
+ GET /leads/new 200 in 1705ms
+ ○ Compiling /import ...
+ ✓ Compiled /import in 840ms (978 modules)
+ GET /import 200 in 996ms
+ ○ Compiling /templates ...
+ ✓ Compiled /templates in 861ms (994 modules)
+ GET /templates 200 in 1706ms
+ ○ Compiling /settings ...
+ ✓ Compiled /settings in 841ms (1012 modules)
+ GET /settings 200 in 1449ms
+ GET /templates 200 in 411ms
+ ○ Compiling /drafts ...
+ ✓ Compiled /drafts in 666ms (1018 modules)
+ GET /drafts 200 in 1310ms
+ GET /import 200 in 264ms
+ GET /leads/new 200 in 40ms
+ GET / 200 in 940ms
+ GET /leads 200 in 827ms
+ ○ Compiling /research ...
+ ✓ Compiled /research in 1555ms (837 modules)
+ GET /research 200 in 1839ms
+ ○ Compiling /api/research/search ...
+ ✓ Compiled /api/research/search in 3.5s (883 modules)
+ GET /research 200 in 543ms
+ POST /api/research/search 200 in 9129ms
+ ✓ Compiled in 811ms (319 modules)
+ GET /research 200 in 149ms
+ POST /api/research/search 200 in 2999ms
+ POST /api/research/search 200 in 1726ms
+ ✓ Compiled in 307ms (319 modules)
+ ✓ Compiled in 342ms (319 modules)
+ GET /research 200 in 353ms
+ GET /research 200 in 60ms
+ ✓ Compiled in 475ms (319 modules)
+ GET /research 200 in 70ms
+ ○ Compiling /api/research/import ...
+ ✓ Compiled /api/research/import in 1503ms (885 modules)
+ GET /research 200 in 477ms
+ POST /api/research/import 200 in 2591ms
+ ○ Compiling /leads/[id] ...
+ ✓ Compiled /leads/[id] in 1527ms (901 modules)
+ GET /leads/3fed1e98-e09c-494f-ae7e-6775bf0f936a 200 in 2849ms
+ ○ Compiling /api/ai/generate-draft ...
+ ✓ Compiled /api/ai/generate-draft in 1521ms (1044 modules)
+ POST /api/ai/generate-draft 200 in 2474ms
+ ✓ Compiled in 276ms (328 modules)
+ GET /leads/3fed1e98-e09c-494f-ae7e-6775bf0f936a 200 in 187ms
+ ○ Compiling /api/gmail/sync ...
+ ✓ Compiled /api/gmail/sync in 2.7s (1989 modules)
+ GET /api/gmail/sync 200 in 7225ms
+[?25h

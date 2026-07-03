@@ -1,0 +1,38 @@
+
+> outreachflow@0.1.0 dev
+> next dev
+
+   ▲ Next.js 15.5.20
+   - Local:        http://localhost:3000
+   - Network:      http://26.134.119.143:3000
+   - Environments: .env.local
+   - Experiments (use with caution):
+     · serverActions
+
+ ✓ Starting...
+ ✓ Ready in 1856ms
+ ○ Compiling / ...
+ ✓ Compiled / in 4.4s (743 modules)
+ GET / 200 in 6273ms
+ ○ Compiling /leads ...
+ ✓ Compiled /leads in 1585ms (774 modules)
+ GET /leads 200 in 2423ms
+ ○ Compiling /leads/[id] ...
+ ✓ Compiled /leads/[id] in 790ms (798 modules)
+ GET /leads/3fed1e98-e09c-494f-ae7e-6775bf0f936a 200 in 2431ms
+ GET /leads/3fed1e98-e09c-494f-ae7e-6775bf0f936a 200 in 381ms
+ ○ Compiling /api/replies/[id] ...
+ ✓ Compiled /api/replies/[id] in 791ms (826 modules)
+ PATCH /api/replies/1ef966f3-20ff-4098-bd6d-8fc994689762 200 in 2119ms
+ GET / 200 in 486ms
+ GET /leads/3fed1e98-e09c-494f-ae7e-6775bf0f936a 200 in 683ms
+ GET /leads 200 in 638ms
+ GET / 200 in 548ms
+ GET / 200 in 1628ms
+ ✓ Compiled in 482ms (803 modules)
+ GET / 200 in 232ms
+ ✓ Compiled in 246ms (803 modules)
+ GET / 200 in 198ms
+ ✓ Compiled in 239ms (803 modules)
+ GET / 200 in 136ms
+[?25h

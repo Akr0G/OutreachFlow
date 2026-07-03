@@ -1,0 +1,71 @@
+
+> outreachflow@0.1.0 dev
+> next dev
+
+   ▲ Next.js 15.5.20
+   - Local:        http://localhost:3000
+   - Network:      http://26.134.119.143:3000
+   - Environments: .env.local
+   - Experiments (use with caution):
+     · serverActions
+
+ ✓ Starting...
+ ✓ Ready in 1833ms
+ ○ Compiling /api/gmail/sync ...
+ ✓ Compiled /api/gmail/sync in 1654ms (1484 modules)
+ GET /api/gmail/sync 200 in 4840ms
+ ○ Compiling / ...
+ ✓ Compiled / in 2.2s (721 modules)
+ GET / 200 in 4165ms
+ ○ Compiling /api/drafts/[id] ...
+ ✓ Compiled /api/drafts/[id] in 899ms (749 modules)
+ PATCH /api/drafts/ca94905d-4d9c-4542-a6d2-3a608c41621e 200 in 1902ms
+ ○ Compiling /api/gmail/send ...
+ ✓ Compiled /api/gmail/send in 698ms (1736 modules)
+ POST /api/gmail/send 200 in 4560ms
+ ✓ Compiled /api/gmail/sync in 351ms (1618 modules)
+ GET /api/gmail/sync 200 in 9111ms
+ GET / 200 in 961ms
+ ○ Compiling /leads/new ...
+ ✓ Compiled /leads/new in 2s (2072 modules)
+ GET /leads/new 200 in 2341ms
+ POST /leads/new 200 in 998ms
+ ○ Compiling /leads ...
+ ✓ Compiled /leads in 640ms (961 modules)
+ GET /leads 200 in 1506ms
+ ○ Compiling /leads/[id] ...
+ ✓ Compiled /leads/[id] in 560ms (995 modules)
+ GET /leads/3fed1e98-e09c-494f-ae7e-6775bf0f936a 200 in 2087ms
+ GET /leads 200 in 499ms
+ GET /leads/0efe02fb-a3f7-42b2-a4a6-0fd8a08e4eaf 200 in 540ms
+ ○ Compiling /api/ai/generate-draft ...
+ ✓ Compiled /api/ai/generate-draft in 1059ms (1166 modules)
+ POST /api/ai/generate-draft 200 in 2529ms
+ ○ Compiling /api/drafts/[id] ...
+ ✓ Compiled /api/drafts/[id] in 690ms (877 modules)
+ PATCH /api/drafts/23f8e6ab-830f-4aea-8e83-f8d118a6991d 200 in 1064ms
+ ○ Compiling /api/gmail/send ...
+ ✓ Compiled /api/gmail/send in 3.2s (1844 modules)
+ POST /api/gmail/send 200 in 7761ms
+ GET / 200 in 838ms
+ GET /leads/3fed1e98-e09c-494f-ae7e-6775bf0f936a 200 in 394ms
+ GET / 200 in 484ms
+ GET / 200 in 773ms
+ GET / 200 in 466ms
+ GET / 200 in 563ms
+ GET /leads 200 in 278ms
+ GET /leads/0efe02fb-a3f7-42b2-a4a6-0fd8a08e4eaf 200 in 385ms
+ GET / 200 in 460ms
+ ○ Compiling /api/gmail/sync ...
+ ✓ Compiled /api/gmail/sync in 938ms (1840 modules)
+ GET /api/gmail/sync 200 in 23021ms
+ GET /api/gmail/sync 200 in 1805ms
+ GET / 200 in 604ms
+ GET /leads 200 in 352ms
+ GET /leads/0efe02fb-a3f7-42b2-a4a6-0fd8a08e4eaf 200 in 609ms
+ GET / 200 in 602ms
+ GET /api/gmail/sync 200 in 1903ms
+ GET /api/gmail/sync 200 in 2106ms
+ ✓ Compiled in 5.2s (1001 modules)
+ GET / 200 in 1334ms
+[?25h
