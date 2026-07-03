@@ -13,3 +13,20 @@
  ✓ Ready in 1863ms
  ○ Compiling / ...
  ✓ Compiled / in 3.7s (751 modules)
+ GET / 200 in 5784ms
+ ○ Compiling /settings ...
+ ✓ Compiled /settings in 1561ms (777 modules)
+ GET /settings 200 in 100ms
+ GET /settings 200 in 2451ms
+   Reload env: .env.local
+ ✓ Compiled in 437ms (777 modules)
+ GET /settings 200 in 788ms
+   Reload env: .env.local
+ ✓ Compiled in 196ms (763 modules)
+ GET /settings 200 in 148ms
+   Reload env: .env.local
+ ✓ Compiled in 131ms (763 modules)
+ GET /settings 200 in 92ms
+ ✓ Compiled in 370ms (272 modules)
+ ✓ Compiled in 217ms (272 modules)
+ ✓ Compiled in 1414ms (726 modules)
