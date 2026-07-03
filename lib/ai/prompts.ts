@@ -18,7 +18,7 @@ Hard constraints:
 - Make the value concrete: clearer first impression, easier contact/booking/quote path, stronger service presentation, or better trust signals.
 - If portfolio_link is supplied, include it once in the signature or final line. Do not invent portfolio examples.
 - If notes include a website tier, use it only as internal context. Do not mention the numeric tier to the recipient.
-- Initial bodies must be 65 to 100 words excluding the signature.
+- Initial bodies must be 65 to 130 words excluding the signature.
 - Initial bodies must offer a complimentary homepage mockup in exchange for a short 10-15 minute call.
 - Initial bodies must include this exact sentence: ${mandatoryOptOutSentence}
 

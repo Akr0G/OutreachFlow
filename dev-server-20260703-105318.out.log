@@ -1,0 +1,37 @@
+
+> outreachflow@0.1.0 dev
+> next dev
+
+   ▲ Next.js 15.5.20
+   - Local:        http://localhost:3000
+   - Network:      http://26.134.119.143:3000
+   - Environments: .env.local
+   - Experiments (use with caution):
+     · serverActions
+
+ ✓ Starting...
+ ✓ Ready in 1881ms
+ ○ Compiling / ...
+ ✓ Compiled / in 4.3s (694 modules)
+ GET / 200 in 7026ms
+ ○ Compiling /leads ...
+ ✓ Compiled /leads in 1541ms (747 modules)
+ GET /leads 200 in 145ms
+ GET /leads 200 in 2392ms
+ ○ Compiling /leads/[id] ...
+ ✓ Compiled /leads/[id] in 1026ms (773 modules)
+ GET /leads/cbf82e21-39e7-4644-924e-234c1caa8ee6 200 in 2659ms
+ ○ Compiling /api/ai/generate-draft ...
+ ✓ Compiled /api/ai/generate-draft in 1139ms (947 modules)
+ POST /api/ai/generate-draft 200 in 2495ms
+ ○ Compiling /api/drafts/[id] ...
+ ✓ Compiled /api/drafts/[id] in 960ms (804 modules)
+ PATCH /api/drafts/39b27566-f65a-44e1-acf8-e6b47ad77b74 200 in 2323ms
+ ○ Compiling /api/gmail/send ...
+ ✓ Compiled /api/gmail/send in 2.7s (1791 modules)
+ POST /api/gmail/send 200 in 7544ms
+ ✓ Compiled in 288ms (274 modules)
+ ✓ Compiled in 126ms (274 modules)
+ GET /leads/cbf82e21-39e7-4644-924e-234c1caa8ee6 200 in 627ms
+ GET /leads/cbf82e21-39e7-4644-924e-234c1caa8ee6 200 in 979ms
+[?25h

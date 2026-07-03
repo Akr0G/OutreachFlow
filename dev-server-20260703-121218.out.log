@@ -1,0 +1,79 @@
+
+> outreachflow@0.1.0 dev
+> next dev
+
+   ▲ Next.js 15.5.20
+   - Local:        http://localhost:3000
+   - Network:      http://26.134.119.143:3000
+   - Environments: .env.local
+   - Experiments (use with caution):
+     · serverActions
+
+ ✓ Starting...
+ ✓ Ready in 2s
+ ○ Compiling / ...
+ ✓ Compiled / in 3.4s (694 modules)
+ GET / 200 in 5490ms
+ ○ Compiling /leads ...
+ ✓ Compiled /leads in 1532ms (747 modules)
+ GET /leads 200 in 172ms
+ GET /leads 200 in 2163ms
+ ○ Compiling /leads/[id] ...
+ ✓ Compiled /leads/[id] in 933ms (773 modules)
+ GET /leads/f3f8e284-3409-4fa4-a648-c1fef4de29af 200 in 2514ms
+ ○ Compiling /api/ai/generate-draft ...
+ ✓ Compiled /api/ai/generate-draft in 1103ms (947 modules)
+ POST /api/ai/generate-draft 422 in 1932ms
+ POST /api/ai/generate-draft 422 in 804ms
+ GET /leads/f3f8e284-3409-4fa4-a648-c1fef4de29af 200 in 1019ms
+ POST /api/ai/generate-draft 422 in 656ms
+ GET /leads/f3f8e284-3409-4fa4-a648-c1fef4de29af 200 in 1167ms
+ POST /api/ai/generate-draft 422 in 424ms
+ ✓ Compiled in 1647ms (788 modules)
+ GET /leads/f3f8e284-3409-4fa4-a648-c1fef4de29af 200 in 665ms
+ GET /leads/f3f8e284-3409-4fa4-a648-c1fef4de29af 200 in 1202ms
+ ○ Compiling /api/ai/generate-draft ...
+ ✓ Compiled /api/ai/generate-draft in 636ms (687 modules)
+ GET /leads/f3f8e284-3409-4fa4-a648-c1fef4de29af 200 in 429ms
+ POST /api/ai/generate-draft 200 in 1698ms
+ ✓ Compiled in 438ms (788 modules)
+ GET /leads/f3f8e284-3409-4fa4-a648-c1fef4de29af 200 in 222ms
+ ✓ Compiled in 208ms (274 modules)
+ GET /leads/f3f8e284-3409-4fa4-a648-c1fef4de29af 200 in 79ms
+ ✓ Compiled in 174ms (274 modules)
+ GET /leads/f3f8e284-3409-4fa4-a648-c1fef4de29af 200 in 54ms
+ ✓ Compiled in 170ms (274 modules)
+ GET /leads/f3f8e284-3409-4fa4-a648-c1fef4de29af 200 in 57ms
+ GET /leads/f3f8e284-3409-4fa4-a648-c1fef4de29af 200 in 1259ms
+ ○ Compiling /api/drafts/[id] ...
+ ✓ Compiled /api/drafts/[id] in 772ms (804 modules)
+ PATCH /api/drafts/8bc342aa-e6cb-4064-9645-20fe267701c4 200 in 1964ms
+ GET /leads 200 in 421ms
+ GET /leads/f3f8e284-3409-4fa4-a648-c1fef4de29af 200 in 670ms
+ ○ Compiling /api/leads/[id] ...
+ ✓ Compiled /api/leads/[id] in 572ms (806 modules)
+ DELETE /api/leads/f3f8e284-3409-4fa4-a648-c1fef4de29af 200 in 1623ms
+ GET /leads 200 in 517ms
+ GET /leads 200 in 363ms
+ GET /leads/968deffa-48d0-4254-bafb-16e57d184dc6 200 in 766ms
+ GET /leads 200 in 364ms
+ DELETE /api/leads/968deffa-48d0-4254-bafb-16e57d184dc6 200 in 535ms
+ DELETE /api/leads/e74860aa-146e-4425-9a41-f518ad875393 200 in 302ms
+ ○ Compiling /research ...
+ ✓ Compiled /research in 1335ms (824 modules)
+ GET /research 200 in 1499ms
+ ✓ Compiled /api/research/search in 482ms (828 modules)
+ POST /api/research/search 200 in 2932ms
+ POST /api/research/search 200 in 5382ms
+ ○ Compiling /api/research/import ...
+ ✓ Compiled /api/research/import in 1107ms (828 modules)
+ POST /api/research/import 200 in 1896ms
+ GET /leads/23ff82e0-850a-4b66-b9af-190b6f69cda5 200 in 660ms
+ ○ Compiling /api/ai/generate-draft ...
+ ✓ Compiled /api/ai/generate-draft in 1149ms (705 modules)
+ GET /leads/23ff82e0-850a-4b66-b9af-190b6f69cda5 200 in 441ms
+ POST /api/ai/generate-draft 200 in 2303ms
+ ✓ Compiled in 348ms (981 modules)
+ GET /leads/23ff82e0-850a-4b66-b9af-190b6f69cda5 200 in 112ms
+ ✓ Compiled in 477ms (806 modules)
+ GET /leads/23ff82e0-850a-4b66-b9af-190b6f69cda5 200 in 207ms

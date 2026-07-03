@@ -35,26 +35,44 @@ export async function POST(request: NextRequest) {
 
   const variation = pickDraftVariation(`${lead.id}:${Date.now()}:${parsed.data.draft_type}`);
   let generated: GeneratedEmailDraft;
-  let generatedBy: GeneratedBy = "ai";
-  try {
-    const apiKey = resolveOpenAiApiKey(settings);
-    generated = await generateEmailDraftWithOpenAI(apiKey, {
-      lead,
-      settings,
-      templates,
-      draft_type: parsed.data.draft_type,
-      variation
-    });
-  } catch {
+  let generatedBy: GeneratedBy = "manual";
+
+  if (process.env.USE_OPENAI_DRAFTS === "true") {
+    try {
+      const apiKey = resolveOpenAiApiKey(settings);
+      generated = await generateEmailDraftWithOpenAI(apiKey, {
+        lead,
+        settings,
+        templates,
+        draft_type: parsed.data.draft_type,
+        variation
+      });
+      generatedBy = "ai";
+    } catch {
+      generated = buildLocalDraft(lead, parsed.data.draft_type, settings, variation);
+      generatedBy = "manual";
+    }
+  } else {
     generated = buildLocalDraft(lead, parsed.data.draft_type, settings, variation);
-    generatedBy = "manual";
   }
 
   const signature = templates.find((template) => template.template_type === "signature")?.content;
   if (parsed.data.draft_type === "initial") {
-    const validation = validateInitialEmailDraft(generated, lead, signature);
+    let validation = validateInitialEmailDraft(generated, lead, signature);
+    if (!validation.valid && generatedBy === "ai") {
+      generated = buildLocalDraft(lead, parsed.data.draft_type, settings, variation);
+      generatedBy = "manual";
+      validation = validateInitialEmailDraft(generated, lead, signature);
+    }
     if (!validation.valid) {
-      return NextResponse.json({ error: "Generated draft failed validation.", details: validation.errors }, { status: 422 });
+      return NextResponse.json(
+        {
+          error: "Generated draft failed validation.",
+          details: validation.errors,
+          word_count: validation.wordCount
+        },
+        { status: 422 }
+      );
     }
   }
 
