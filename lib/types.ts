@@ -39,6 +39,7 @@ export type Lead = {
   initial_sent_at: string | null;
   last_activity_at: string;
   gmail_thread_id: string | null;
+  source_place_id?: string | null;
   stop_reason: string | null;
   created_at: string;
   updated_at: string;
@@ -157,4 +158,5 @@ export type ResearchCandidate = {
   notes: string | null;
   confidence: number;
   needs_email_verification: boolean;
+  opening_date?: string | null;
 };

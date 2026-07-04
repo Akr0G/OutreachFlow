@@ -13,6 +13,7 @@ import {
   sampleTemplates
 } from "@/lib/sample-data";
 import { createSupabaseWorkspaceClient, isSupabaseConfigured } from "@/lib/supabase/server";
+import { fetchAllPages } from "@/lib/supabase/pagination";
 import type { Activity, AppSettings, EmailDraft, Lead, Notification, Reply, Template } from "@/lib/types";
 
 export type RawSettings = AppSettings & {
@@ -23,9 +24,15 @@ export async function listLeads(): Promise<Lead[]> {
   if (!isSupabaseConfigured()) return sampleLeads;
   const owner = await getOwnerContext();
   const supabase = await createSupabaseWorkspaceClient();
-  const { data, error } = await supabase.from("leads").select("*").eq("owner_id", owner.id).order("created_at", { ascending: false });
-  if (error) throw error;
-  return data as Lead[];
+  return fetchAllPages<Lead>((from, to) =>
+    supabase
+      .from("leads")
+      .select("*")
+      .eq("owner_id", owner.id)
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: true })
+      .range(from, to)
+  );
 }
 
 export async function getLead(id: string): Promise<Lead | null> {
@@ -75,18 +82,30 @@ export async function listDrafts(): Promise<EmailDraft[]> {
   if (!isSupabaseConfigured()) return sampleDrafts;
   const owner = await getOwnerContext();
   const supabase = await createSupabaseWorkspaceClient();
-  const { data, error } = await supabase.from("email_drafts").select("*").eq("owner_id", owner.id).order("created_at", { ascending: false });
-  if (error) throw error;
-  return data as EmailDraft[];
+  return fetchAllPages<EmailDraft>((from, to) =>
+    supabase
+      .from("email_drafts")
+      .select("*")
+      .eq("owner_id", owner.id)
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: true })
+      .range(from, to)
+  );
 }
 
 export async function listReplies(): Promise<Reply[]> {
   if (!isSupabaseConfigured()) return sampleReplies;
   const owner = await getOwnerContext();
   const supabase = await createSupabaseWorkspaceClient();
-  const { data, error } = await supabase.from("replies").select("*").eq("owner_id", owner.id).order("received_at", { ascending: false });
-  if (error) throw error;
-  return data as Reply[];
+  return fetchAllPages<Reply>((from, to) =>
+    supabase
+      .from("replies")
+      .select("*")
+      .eq("owner_id", owner.id)
+      .order("received_at", { ascending: false })
+      .order("id", { ascending: true })
+      .range(from, to)
+  );
 }
 
 export async function listActivities(): Promise<Activity[]> {

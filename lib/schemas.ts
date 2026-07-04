@@ -26,6 +26,7 @@ export const leadInputSchema = z.object({
   observed_website_issues: z.array(z.enum(observedWebsiteIssues)).default([]),
   issue_details: nullableText,
   notes: nullableText,
+  source_place_id: nullableText,
   status: z.enum(leadStatuses).default("Ready"),
   date_contacted: nullableText,
   follow_up_count: z.coerce.number().int().min(0).max(1).default(0)
@@ -104,8 +105,8 @@ export const openAiSecretSchema = z.object({
 
 export const researchSearchSchema = z.object({
   business_type: z.string().trim().min(2).max(80),
-  location: z.string().trim().min(2).max(120),
-  limit: z.coerce.number().int().min(1).max(8).default(5),
+  location: z.string().trim().min(2).max(500),
+  limit: z.coerce.number().int().min(1).max(60).default(10),
   include_website_research: z.boolean().default(true)
 });
 
@@ -118,7 +119,8 @@ export const researchImportSchema = z.object({
   location: nullableText,
   observed_website_issues: z.array(z.enum(observedWebsiteIssues)).default([]),
   issue_details: nullableText,
-  notes: nullableText
+  notes: nullableText,
+  source_place_id: nullableText
 });
 
 export const csvImportRowSchema = leadInputSchema

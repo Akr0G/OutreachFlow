@@ -33,6 +33,7 @@ export type Database = {
           initial_sent_at: string | null;
           last_activity_at: string;
           gmail_thread_id: string | null;
+          source_place_id: string | null;
           stop_reason: string | null;
           created_at: string;
           updated_at: string;
