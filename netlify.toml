@@ -1,0 +1,15 @@
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+[functions."reply-sync"]
+  schedule = "*/5 * * * *"
+
+[functions."follow-ups"]
+  schedule = "0 14 * * *"

@@ -135,7 +135,8 @@ function mergeableLeadFields(row: Record<string, unknown>) {
 }
 
 function withoutSourcePlaceId<T extends Record<string, unknown>>(row: T) {
-  const { source_place_id: _sourcePlaceId, ...rest } = row;
+  const rest = { ...row };
+  delete rest.source_place_id;
   return rest;
 }
 
