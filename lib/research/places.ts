@@ -28,29 +28,31 @@ export async function searchResearchCandidates(input: ResearchSearchInput): Prom
   const businessQuery = normalizeBusinessQuery(input.business_type);
   const locations = parseResearchLocations(input.location);
   const placesById = new Map<string, GooglePlace>();
-  const targetPerLocation = Math.max(1, Math.ceil(input.limit / locations.length));
+  const searchBudget = input.include_website_research ? Math.min(60, input.limit * 3) : input.limit;
+  const targetPerLocation = Math.max(1, Math.ceil(searchBudget / locations.length));
 
   for (const location of locations) {
-    if (placesById.size >= input.limit) break;
+    if (placesById.size >= searchBudget) break;
     const locationPlaces = await searchLocationPages(
       apiKey,
       businessQuery,
       location,
-      Math.min(targetPerLocation, input.limit - placesById.size)
+      Math.min(targetPerLocation, searchBudget - placesById.size)
     );
     for (const place of locationPlaces) {
       if (place.businessStatus === "CLOSED_PERMANENTLY") continue;
       const key = place.id ?? `${place.displayName?.text ?? ""}:${place.formattedAddress ?? ""}`;
       if (key) placesById.set(key, { ...place, searchLocation: location });
-      if (placesById.size >= input.limit) break;
+      if (placesById.size >= searchBudget) break;
     }
   }
 
-  return mapWithConcurrency(
+  const candidates = await mapWithConcurrency(
     Array.from(placesById.values()),
     5,
     (place) => placeToCandidate(place, input)
   );
+  return candidates.sort(compareResearchCandidates).slice(0, input.limit);
 }
 
 async function searchLocationPages(
@@ -107,7 +109,7 @@ function normalizeBusinessQuery(value: string) {
 }
 
 export function parseResearchLocations(value: string) {
-  const locations = value
+  const locations = expandNationwideLocation(value)
     .split(/[;\n]/)
     .map((location) => location.trim())
     .filter(Boolean);
@@ -118,6 +120,14 @@ export function parseResearchLocations(value: string) {
     throw new Error("Enter at least one explicit city and state.");
   }
   return Array.from(new Set(locations)).slice(0, 10);
+}
+
+function expandNationwideLocation(value: string) {
+  const normalized = value.trim().toLowerCase();
+  if (["usa", "us", "u.s.", "u.s.a.", "united states", "united states of america"].includes(normalized)) {
+    return "United States";
+  }
+  return value;
 }
 
 async function placeToCandidate(place: GooglePlace, input: ResearchSearchInput): Promise<ResearchCandidate> {
@@ -240,4 +250,12 @@ async function mapWithConcurrency<T, R>(
   });
   await Promise.all(workers);
   return results;
+}
+
+function compareResearchCandidates(left: ResearchCandidate, right: ResearchCandidate) {
+  if (left.website_quality_tier !== right.website_quality_tier) {
+    return left.website_quality_tier - right.website_quality_tier;
+  }
+  if (Boolean(left.email) !== Boolean(right.email)) return left.email ? -1 : 1;
+  return right.confidence - left.confidence;
 }

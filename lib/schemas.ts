@@ -106,7 +106,7 @@ export const openAiSecretSchema = z.object({
 export const researchSearchSchema = z.object({
   business_type: z.string().trim().min(2).max(80),
   location: z.string().trim().min(2).max(500),
-  limit: z.coerce.number().int().min(1).max(60).default(10),
+  limit: z.coerce.number().int().min(1).max(20).default(20),
   include_website_research: z.boolean().default(true)
 });
 

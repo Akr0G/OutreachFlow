@@ -12,4 +12,8 @@ describe("research locations", () => {
   it("rejects server-side near-me searches", () => {
     expect(() => parseResearchLocations("near me")).toThrow("explicit city and state");
   });
+
+  it("accepts nationwide USA searches", () => {
+    expect(parseResearchLocations("USA")).toEqual(["United States"]);
+  });
 });

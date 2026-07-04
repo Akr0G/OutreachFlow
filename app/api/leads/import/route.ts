@@ -178,8 +178,13 @@ function normalizeIssues(value: unknown) {
 }
 
 function mergeableLeadFields(row: Record<string, unknown>) {
-  const { status: _status, follow_up_count: _followUpCount, ...fields } = row;
   return Object.fromEntries(
-    Object.entries(fields).filter(([, value]) => value !== null && value !== "" && value !== undefined)
+    Object.entries(row).filter(([key, value]) =>
+      key !== "status" &&
+      key !== "follow_up_count" &&
+      value !== null &&
+      value !== "" &&
+      value !== undefined
+    )
   );
 }

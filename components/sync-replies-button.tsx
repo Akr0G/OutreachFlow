@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -18,11 +18,26 @@ export function SyncRepliesButton() {
   const [isPending, startTransition] = useTransition();
   const [isSyncing, setIsSyncing] = useState(false);
   const [message, setMessage] = useState("");
+  const syncingRef = useRef(false);
   const busy = isSyncing || isPending;
 
-  async function syncReplies() {
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === "visible") {
+        void syncReplies({ automatic: true });
+      }
+    }, 5 * 60 * 1000);
+
+    return () => window.clearInterval(interval);
+    // The sync function uses refs/state setters and does not need interval recreation.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function syncReplies(options: { automatic?: boolean } = {}) {
+    if (syncingRef.current) return;
+    syncingRef.current = true;
     setIsSyncing(true);
-    setMessage("");
+    if (!options.automatic) setMessage("");
 
     try {
       const response = await fetch("/api/gmail/sync", {
@@ -35,20 +50,25 @@ export function SyncRepliesButton() {
         throw new Error(body.error ?? "Reply sync failed.");
       }
 
-      setMessage(body.message ?? `Synced ${body.synced ?? 0} replies.`);
+      if (!options.automatic || (body.synced ?? 0) > 0) {
+        setMessage(body.message ?? `Synced ${body.synced ?? 0} replies.`);
+      }
       startTransition(() => {
         router.refresh();
       });
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Reply sync failed.");
+      if (!options.automatic) {
+        setMessage(error instanceof Error ? error.message : "Reply sync failed.");
+      }
     } finally {
+      syncingRef.current = false;
       setIsSyncing(false);
     }
   }
 
   return (
     <div className="flex flex-col items-start gap-2">
-      <Button type="button" variant="secondary" size="sm" onClick={syncReplies} disabled={busy}>
+      <Button type="button" variant="secondary" size="sm" onClick={() => void syncReplies()} disabled={busy}>
         <RefreshCw className={`h-4 w-4 ${busy ? "animate-spin" : ""}`} aria-hidden="true" />
         {busy ? "Syncing" : "Sync Replies"}
       </Button>

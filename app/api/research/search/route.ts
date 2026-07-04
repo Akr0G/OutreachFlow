@@ -6,7 +6,7 @@ import { searchResearchCandidates } from "@/lib/research/places";
 
 export async function POST(request: NextRequest) {
   const owner = await getOwnerContext();
-  const limited = rateLimit(`research-search:${owner.id}`, 8, 60_000);
+  const limited = rateLimit(`research-search:${owner.id}`, 20, 60_000);
   if (!limited.allowed) return NextResponse.json({ error: "Too many research searches." }, { status: 429 });
 
   const parsed = researchSearchSchema.safeParse(await request.json());

@@ -255,7 +255,11 @@ export function LeadTable({ leads, drafts }: { leads: Lead[]; drafts: EmailDraft
                       className="h-4 w-4 rounded border-slate-300 text-teal-700 focus:ring-teal-600"
                     />
                   </td>
-                  <td className="px-4 py-3 font-medium text-slate-950">{lead.business_name}</td>
+                  <td className="px-4 py-3 font-medium text-slate-950">
+                    <Link href={`/leads/${lead.id}`} className="text-teal-700 hover:text-teal-900 hover:underline">
+                      {lead.business_name}
+                    </Link>
+                  </td>
                   <td className="px-4 py-3 text-slate-700">{lead.contact_name ?? "Not set"}</td>
                   <td className="px-4 py-3 text-slate-700">{lead.email}</td>
                   <td className="px-4 py-3 text-slate-700">{lead.industry ?? "Not set"}</td>
