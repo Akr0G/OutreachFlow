@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
       .from("settings")
       .upsert({
         sender_name: settings.sender_name,
-        sender_email: settings.sender_email,
+        sender_email: userinfo.data.email ?? settings.sender_email,
         agency_name: settings.agency_name,
         agency_website: settings.agency_website,
         portfolio_link: settings.portfolio_link,

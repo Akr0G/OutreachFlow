@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getOwnerContext } from "@/lib/auth/owner";
 import { canSendDraft } from "@/lib/business-rules";
+import { assertSenderMatchesConnectedMailbox } from "@/lib/email/deliverability";
 import { createGmailDraft, sendGmailDraft, updateGmailDraft } from "@/lib/gmail/client";
 import { rateLimit } from "@/lib/rate-limit";
 import { sendDraftSchema } from "@/lib/schemas";
@@ -51,6 +52,14 @@ export async function POST(request: NextRequest) {
   if (!sendCheck.allowed) return NextResponse.json({ error: sendCheck.reason }, { status: 409 });
   if (!settings.encrypted_gmail_refresh_token) {
     return NextResponse.json({ error: "Gmail is not connected." }, { status: 409 });
+  }
+  try {
+    assertSenderMatchesConnectedMailbox(settings);
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Sender email does not match Gmail." },
+      { status: 409 }
+    );
   }
 
   const refreshToken = decryptSecret(settings.encrypted_gmail_refresh_token);

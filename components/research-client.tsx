@@ -17,6 +17,7 @@ type CandidateState = ResearchCandidate & {
   importContactName: string;
   importMessage?: string;
   importedLeadId?: string;
+  bulkProcessed?: boolean;
 };
 
 const businessTypeOptions = [
@@ -38,29 +39,17 @@ const businessTypeOptions = [
   "Real estate agencies"
 ];
 
-const locationOptions = [
-  "near me",
-  "Middletown, DE",
-  "Wilmington, DE",
-  "Newark, DE",
-  "Dover, DE",
-  "Philadelphia, PA",
-  "Baltimore, MD",
-  "Washington, DC",
-  "New York, NY",
-  "Boston, MA"
-];
-
 type TierFilter = "all" | "0" | "1" | "2" | "3";
 
 export function ResearchClient() {
   const [businessType, setBusinessType] = useState(businessTypeOptions[0]);
-  const [location, setLocation] = useState("near me");
-  const [limit, setLimit] = useState(5);
+  const [location, setLocation] = useState("Middletown, DE");
+  const [limit, setLimit] = useState(10);
   const [includeWebsiteResearch, setIncludeWebsiteResearch] = useState(true);
   const [tierFilter, setTierFilter] = useState<TierFilter>("all");
   const [candidates, setCandidates] = useState<CandidateState[]>([]);
   const [loading, setLoading] = useState(false);
+  const [bulkImporting, setBulkImporting] = useState(false);
   const [message, setMessage] = useState("");
 
   async function searchCandidates() {
@@ -114,7 +103,8 @@ export function ResearchClient() {
           location: candidate.location,
           observed_website_issues: candidate.observed_website_issues,
           issue_details: candidate.issue_details,
-          notes: appendResearchNotes(candidate)
+          notes: appendResearchNotes(candidate),
+          source_place_id: candidate.source === "google_places" ? candidate.id : null
         })
       });
       const body = await response.json();
@@ -128,6 +118,47 @@ export function ResearchClient() {
         importMessage: error instanceof Error ? error.message : "Lead could not be added."
       });
     }
+  }
+
+  async function importVerifiedCandidates() {
+    const importable = candidates.filter((candidate) => candidate.importEmail && !candidate.importedLeadId && !candidate.bulkProcessed);
+    if (!importable.length) {
+      setMessage("No new candidates with public email addresses are ready to add.");
+      return;
+    }
+    setBulkImporting(true);
+    const response = await fetch("/api/leads/import", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        source: "research",
+        rows: importable.map((candidate) => ({
+          business_name: candidate.business_name,
+          contact_name: candidate.importContactName || null,
+          email: candidate.importEmail,
+          website_url: candidate.website_url,
+          industry: candidate.industry,
+          location: candidate.location,
+          observed_website_issues: candidate.observed_website_issues,
+          issue_details: candidate.issue_details,
+          notes: appendResearchNotes(candidate),
+          source_place_id: candidate.source === "google_places" ? candidate.id : null,
+          duplicate_action: "merge"
+        }))
+      })
+    });
+    const body = await response.json().catch(() => null);
+    setBulkImporting(false);
+    if (!response.ok) {
+      setMessage(body?.error ?? "Leads with public email addresses could not be added.");
+      return;
+    }
+    setCandidates((current) => current.map((candidate) =>
+      importable.some((item) => item.id === candidate.id)
+        ? { ...candidate, importMessage: "Processed by bulk research import.", bulkProcessed: true }
+        : candidate
+    ));
+    setMessage(body?.message ?? `Processed ${importable.length} verified candidates.`);
   }
 
   const filteredCandidates = useMemo(() => {
@@ -159,14 +190,12 @@ export function ResearchClient() {
                 ))}
               </SelectControl>
             </Field>
-            <Field label="Location">
-              <SelectControl value={location} onChange={setLocation} label="Location">
-                {locationOptions.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </SelectControl>
+            <Field label="Locations">
+              <Input
+                value={location}
+                onChange={(event) => setLocation(event.target.value)}
+                placeholder="Wilmington, DE; Philadelphia, PA"
+              />
             </Field>
             <Field label="Website tier">
               <SelectControl value={tierFilter} onChange={(value) => setTierFilter(value as TierFilter)} label="Website tier">
@@ -178,13 +207,16 @@ export function ResearchClient() {
               </SelectControl>
             </Field>
             <Field label="Results">
-              <Input type="number" min={1} max={8} value={limit} onChange={(event) => setLimit(Number(event.target.value))} />
+              <Input type="number" min={1} max={60} value={limit} onChange={(event) => setLimit(Number(event.target.value))} />
             </Field>
             <Button type="button" onClick={searchCandidates} disabled={loading || !businessType || !location}>
               {loading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Search className="h-4 w-4" aria-hidden="true" />}
               Search
             </Button>
           </div>
+          <p className="text-xs text-slate-500">
+            Separate cities or states with semicolons. Searches are deduplicated and capped at 60 total candidates.
+          </p>
           <label className="flex items-center gap-2 text-sm text-slate-700">
             <input
               type="checkbox"
@@ -199,9 +231,21 @@ export function ResearchClient() {
 
       <div className="flex items-center justify-between">
         <h2 className="text-base font-semibold tracking-normal text-slate-950">Candidates</h2>
-        <span className="text-sm text-slate-500">
-          {resultCount} shown{candidates.length !== resultCount ? ` / ${candidates.length} found` : ""}
-        </span>
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-slate-500">
+            {resultCount} shown{candidates.length !== resultCount ? ` / ${candidates.length} found` : ""}
+          </span>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={importVerifiedCandidates}
+            disabled={bulkImporting || !candidates.some((candidate) => candidate.importEmail && !candidate.importedLeadId && !candidate.bulkProcessed)}
+          >
+            {bulkImporting ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Plus className="h-4 w-4" aria-hidden="true" />}
+            Add leads with email
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-4 xl:grid-cols-2">
@@ -259,6 +303,11 @@ function CandidateCard({
             <Badge className="border-emerald-200 bg-emerald-50 text-emerald-800">
               {Math.round(candidate.confidence * 100)}%
             </Badge>
+            {candidate.opening_date && (
+              <Badge className="border-sky-200 bg-sky-50 text-sky-800">
+                Opened {candidate.opening_date}
+              </Badge>
+            )}
           </div>
         </div>
       </CardHeader>
@@ -286,6 +335,17 @@ function CandidateCard({
           >
             <ExternalLink className="h-4 w-4" aria-hidden="true" />
             Website
+          </a>
+        )}
+        {candidate.source_url && (
+          <a
+            href={candidate.source_url}
+            target="_blank"
+            rel="noreferrer"
+            className="ml-4 inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-900"
+          >
+            <MapPin className="h-4 w-4" aria-hidden="true" />
+            View on Google Maps
           </a>
         )}
 

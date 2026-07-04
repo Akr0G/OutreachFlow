@@ -128,6 +128,29 @@ export type GmailThreadMessage = {
   body: string;
 };
 
+export async function listRecentInboxThreadIds(refreshToken: string, newerThanDays = 30) {
+  const gmail = gmailClientFromRefreshToken(refreshToken);
+  const days = Math.min(365, Math.max(1, Math.floor(newerThanDays)));
+  const threadIds = new Set<string>();
+  let pageToken: string | undefined;
+
+  do {
+    const response = await gmail.users.messages.list({
+      userId: "me",
+      q: `in:inbox newer_than:${days}d`,
+      includeSpamTrash: false,
+      maxResults: 500,
+      pageToken
+    });
+    for (const message of response.data.messages ?? []) {
+      if (message.threadId) threadIds.add(message.threadId);
+    }
+    pageToken = response.data.nextPageToken ?? undefined;
+  } while (pageToken);
+
+  return threadIds;
+}
+
 export async function getGmailThreadMessages(refreshToken: string, threadId: string): Promise<GmailThreadMessage[]> {
   const gmail = gmailClientFromRefreshToken(refreshToken);
   const response = await gmail.users.threads.get({
@@ -151,15 +174,26 @@ export async function getGmailThreadMessages(refreshToken: string, threadId: str
 }
 
 export function createMimeMessage(input: GmailDraftInput) {
+  const to = safeHeaderValue(input.to, "To");
+  const from = safeHeaderValue(input.from, "From");
+  const subject = safeHeaderValue(input.subject, "Subject");
   const headers = [
-    `To: ${input.to}`,
-    `From: ${input.from}`,
-    `Subject: ${encodeSubject(input.subject)}`,
+    `To: ${to}`,
+    `From: ${from}`,
+    `Subject: ${encodeSubject(subject)}`,
     "MIME-Version: 1.0",
     "Content-Type: text/plain; charset=UTF-8",
-    "Content-Transfer-Encoding: 7bit"
+    "Content-Transfer-Encoding: 7bit",
+    `List-Unsubscribe: <mailto:${from}?subject=Unsubscribe>`
   ];
   return Buffer.from(`${headers.join("\r\n")}\r\n\r\n${input.body}`, "utf8").toString("base64url");
+}
+
+function safeHeaderValue(value: string, header: string) {
+  if (/[\r\n]/.test(value)) {
+    throw new Error(`${header} contains invalid header characters.`);
+  }
+  return value.trim();
 }
 
 function encodeSubject(subject: string) {

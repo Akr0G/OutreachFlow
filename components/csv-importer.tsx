@@ -46,6 +46,7 @@ export function CsvImporter() {
   const [mapping, setMapping] = useState<Record<AppField, string>>(() => Object.fromEntries(appFields.map((field) => [field.key, ""])) as Record<AppField, string>);
   const [actions, setActions] = useState<Record<number, DuplicateAction>>({});
   const [message, setMessage] = useState("");
+  const [importing, setImporting] = useState(false);
 
   const preview = useMemo(() => {
     const emailCounts = new Map<string, number>();
@@ -107,8 +108,32 @@ export function CsvImporter() {
     if (file) parseFile(file);
   }
 
-  function confirmImport() {
-    setMessage(`${validCount} valid row${validCount === 1 ? "" : "s"} ready to import.`);
+  async function confirmImport() {
+    setImporting(true);
+    setMessage("");
+    const importRows = preview
+      .filter((row) => row.errors.length === 0)
+      .map((row) => ({
+        ...row.mapped,
+        observed_website_issues: row.mapped.observed_website_issues
+          .split(/[;|]/)
+          .map((issue) => issue.trim())
+          .filter(Boolean),
+        duplicate_action: row.action
+      }));
+    const response = await fetch("/api/leads/import", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rows: importRows })
+    });
+    const body = await response.json().catch(() => null);
+    setImporting(false);
+    setMessage(body?.message ?? body?.error ?? "CSV import failed.");
+    if (response.ok && !body?.demo) {
+      setRows([]);
+      setHeaders([]);
+      setActions({});
+    }
   }
 
   function downloadTemplate() {
@@ -192,8 +217,8 @@ export function CsvImporter() {
               <h2 className="text-base font-semibold text-slate-950">Preview</h2>
               <p className="mt-1 text-sm text-slate-500">{validCount} valid rows after duplicate choices</p>
             </div>
-            <Button type="button" onClick={confirmImport} disabled={validCount === 0}>
-              Import valid rows
+            <Button type="button" onClick={confirmImport} disabled={validCount === 0 || importing}>
+              {importing ? "Importing" : "Import valid rows"}
             </Button>
           </div>
           {message && (
@@ -254,7 +279,7 @@ export function CsvImporter() {
                           >
                             <option value="skip">Skip</option>
                             <option value="merge">Merge</option>
-                            <option value="import">Import anyway</option>
+                            <option value="import">Use this row</option>
                           </select>
                         ) : (
                           <span className="text-slate-500">Import</span>

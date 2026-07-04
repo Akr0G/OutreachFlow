@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { canCreateFollowUpDraft } from "@/lib/business-rules";
+import { assertSenderMatchesConnectedMailbox } from "@/lib/email/deliverability";
 import { createGmailDraft } from "@/lib/gmail/client";
 import { decryptSecret } from "@/lib/security/crypto";
 import { getRawSettings, listDrafts, listLeads } from "@/lib/supabase/repository";
@@ -76,6 +77,7 @@ export async function GET(request: NextRequest) {
       threadId: lead.gmail_thread_id
     };
     if (settings.encrypted_gmail_refresh_token) {
+      assertSenderMatchesConnectedMailbox(settings);
       gmail = await createGmailDraft(decryptSecret(settings.encrypted_gmail_refresh_token), {
         from: settings.sender_email,
         to: lead.email,

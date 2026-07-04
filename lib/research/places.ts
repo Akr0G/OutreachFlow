@@ -13,50 +13,111 @@ type GooglePlace = {
   primaryTypeDisplayName?: { text?: string };
   googleMapsUri?: string;
   businessStatus?: string;
+  openingDate?: { year?: number; month?: number; day?: number };
+  searchLocation?: string;
+};
+
+type GooglePlacesResponse = {
+  places?: GooglePlace[];
+  nextPageToken?: string;
 };
 
 export async function searchResearchCandidates(input: ResearchSearchInput): Promise<ResearchCandidate[]> {
   const apiKey = process.env.GOOGLE_PLACES_API_KEY ?? process.env.GOOGLE_MAPS_API_KEY;
   if (!apiKey) return demoCandidates(input);
   const businessQuery = normalizeBusinessQuery(input.business_type);
+  const locations = parseResearchLocations(input.location);
+  const placesById = new Map<string, GooglePlace>();
+  const targetPerLocation = Math.max(1, Math.ceil(input.limit / locations.length));
 
-  const response = await fetch("https://places.googleapis.com/v1/places:searchText", {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "X-Goog-Api-Key": apiKey,
-      "X-Goog-FieldMask": [
-        "places.id",
-        "places.displayName",
-        "places.formattedAddress",
-        "places.websiteUri",
-        "places.nationalPhoneNumber",
-        "places.internationalPhoneNumber",
-        "places.primaryTypeDisplayName",
-        "places.googleMapsUri",
-        "places.businessStatus"
-      ].join(",")
-    },
-    body: JSON.stringify({
-      textQuery: `${businessQuery} near ${input.location}`,
-      pageSize: input.limit
-    })
-  });
-
-  if (!response.ok) {
-    throw new Error(`Places search failed with ${response.status}.`);
+  for (const location of locations) {
+    if (placesById.size >= input.limit) break;
+    const locationPlaces = await searchLocationPages(
+      apiKey,
+      businessQuery,
+      location,
+      Math.min(targetPerLocation, input.limit - placesById.size)
+    );
+    for (const place of locationPlaces) {
+      if (place.businessStatus === "CLOSED_PERMANENTLY") continue;
+      const key = place.id ?? `${place.displayName?.text ?? ""}:${place.formattedAddress ?? ""}`;
+      if (key) placesById.set(key, { ...place, searchLocation: location });
+      if (placesById.size >= input.limit) break;
+    }
   }
 
-  const body = (await response.json()) as { places?: GooglePlace[] };
-  const places = (body.places ?? []).filter((place) => place.businessStatus !== "CLOSED_PERMANENTLY");
-  const candidates = await Promise.all(
-    places.slice(0, input.limit).map((place) => placeToCandidate(place, input))
+  return mapWithConcurrency(
+    Array.from(placesById.values()),
+    5,
+    (place) => placeToCandidate(place, input)
   );
-  return candidates;
+}
+
+async function searchLocationPages(
+  apiKey: string,
+  businessQuery: string,
+  location: string,
+  requestedCount: number
+) {
+  const places: GooglePlace[] = [];
+  let pageToken: string | undefined;
+
+  do {
+    const response = await fetch("https://places.googleapis.com/v1/places:searchText", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "X-Goog-Api-Key": apiKey,
+        "X-Goog-FieldMask": [
+          "places.id",
+          "places.displayName",
+          "places.formattedAddress",
+          "places.websiteUri",
+          "places.nationalPhoneNumber",
+          "places.internationalPhoneNumber",
+          "places.primaryTypeDisplayName",
+          "places.googleMapsUri",
+          "places.businessStatus",
+          "places.openingDate",
+          "nextPageToken"
+        ].join(",")
+      },
+      body: JSON.stringify({
+        textQuery: `${businessQuery} in ${location}`,
+        pageSize: Math.min(20, requestedCount - places.length),
+        ...(pageToken ? { pageToken } : {})
+      })
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => null) as { error?: { message?: string } } | null;
+      throw new Error(error?.error?.message ?? `Places search failed with ${response.status}.`);
+    }
+
+    const body = (await response.json()) as GooglePlacesResponse;
+    places.push(...(body.places ?? []));
+    pageToken = body.nextPageToken;
+  } while (pageToken && places.length < Math.min(60, requestedCount));
+
+  return places.slice(0, requestedCount);
 }
 
 function normalizeBusinessQuery(value: string) {
   return value.toLowerCase() === "all businesses" ? "businesses" : value;
+}
+
+export function parseResearchLocations(value: string) {
+  const locations = value
+    .split(/[;\n]/)
+    .map((location) => location.trim())
+    .filter(Boolean);
+  if (locations.some((location) => location.toLowerCase() === "near me")) {
+    throw new Error("Use an explicit city and state; 'near me' is inaccurate for server-side searches.");
+  }
+  if (!locations.length) {
+    throw new Error("Enter at least one explicit city and state.");
+  }
+  return Array.from(new Set(locations)).slice(0, 10);
 }
 
 async function placeToCandidate(place: GooglePlace, input: ResearchSearchInput): Promise<ResearchCandidate> {
@@ -65,8 +126,10 @@ async function placeToCandidate(place: GooglePlace, input: ResearchSearchInput):
   const fallbackQuality = scoreWebsiteQuality({ websiteUrl: website, issues: [] });
   const businessName = place.displayName?.text ?? "Unnamed business";
   const industry = place.primaryTypeDisplayName?.text ?? input.business_type;
+  const openingDate = formatOpeningDate(place.openingDate);
   const notes = [
-    `Lead found from Google Places text search for "${input.business_type}" near "${input.location}".`,
+    `Lead found from Google Places text search for "${input.business_type}" in "${place.searchLocation ?? input.location}".`,
+    openingDate ? `Google Places lists an opening date of ${openingDate}.` : null,
     place.googleMapsUri ? `Maps source: ${place.googleMapsUri}` : null,
     websiteResearch?.notes ?? null
   ]
@@ -91,7 +154,8 @@ async function placeToCandidate(place: GooglePlace, input: ResearchSearchInput):
     issue_details: websiteResearch?.issueDetails ?? null,
     notes,
     confidence: websiteResearch?.email ? 0.78 : 0.56,
-    needs_email_verification: true
+    needs_email_verification: true,
+    opening_date: openingDate
   };
 }
 
@@ -148,7 +212,32 @@ async function demoCandidates(input: ResearchSearchInput): Promise<ResearchCandi
       issue_details: item.issue_details,
       notes: `Demo lead for "${input.business_type}" near "${input.location}". Website quality: Tier ${quality.tier} - ${quality.label}. Replace with Google Places by setting GOOGLE_PLACES_API_KEY. Verify contact details before outreach.`,
       confidence: item.email ? 0.72 : 0.42,
-      needs_email_verification: true
+      needs_email_verification: true,
+      opening_date: null
     };
   });
+}
+
+function formatOpeningDate(value?: { year?: number; month?: number; day?: number }) {
+  if (!value?.year) return null;
+  return [value.year, value.month ? String(value.month).padStart(2, "0") : null, value.day ? String(value.day).padStart(2, "0") : null]
+    .filter(Boolean)
+    .join("-");
+}
+
+async function mapWithConcurrency<T, R>(
+  values: T[],
+  concurrency: number,
+  mapper: (value: T) => Promise<R>
+) {
+  const results = new Array<R>(values.length);
+  let nextIndex = 0;
+  const workers = Array.from({ length: Math.min(concurrency, values.length) }, async () => {
+    while (nextIndex < values.length) {
+      const index = nextIndex++;
+      results[index] = await mapper(values[index]);
+    }
+  });
+  await Promise.all(workers);
+  return results;
 }
