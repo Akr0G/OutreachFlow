@@ -2,8 +2,6 @@ import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createSupabaseAdminClient, createSupabaseServerClient, isSupabaseConfigured } from "@/lib/supabase/server";
 
-const defaultAllowedOwnerEmail = "digitalwebelevate@gmail.com";
-
 export type OwnerContext = {
   id: string;
   email: string;
@@ -44,7 +42,7 @@ export const getOwnerContext = cache(async (): Promise<OwnerContext> => {
 });
 
 export function getAllowedOwnerEmails() {
-  return (process.env.ALLOWED_OWNER_EMAILS ?? defaultAllowedOwnerEmail)
+  return (process.env.ALLOWED_OWNER_EMAILS ?? "")
     .split(",")
     .map((email) => email.trim().toLowerCase())
     .filter(Boolean);
@@ -52,6 +50,9 @@ export function getAllowedOwnerEmails() {
 
 export function assertAllowedOwnerEmail(email: string) {
   const allowedEmails = getAllowedOwnerEmails();
+  if (allowedEmails.length === 0) {
+    throw new Error("ALLOWED_OWNER_EMAILS must be configured before using this workspace.");
+  }
   if (!allowedEmails.includes(email.trim().toLowerCase())) {
     throw new Error("This email is not allowed to access this workspace.");
   }
@@ -76,6 +77,9 @@ async function loadLocalWorkspaceOwner(): Promise<OwnerContext> {
   if (error) throw error;
 
   const allowedEmails = getAllowedOwnerEmails();
+  if (allowedEmails.length === 0) {
+    throw new Error("ALLOWED_OWNER_EMAILS must be configured before using this workspace.");
+  }
   const user = data.users.find((candidate: { email?: string | null }) =>
     candidate.email ? allowedEmails.includes(candidate.email.toLowerCase()) : false
   );
